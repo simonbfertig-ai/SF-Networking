@@ -309,7 +309,7 @@ async function loadFromCloud(){
   setSyncStatus("Cloud sync loading...");
   try{
     const { data, error } = await sb
-      .from("crm_data")
+      .from("crm-data")
       .select("data")
       .eq("id", 1)
       .single();
@@ -330,7 +330,7 @@ async function loadFromCloud(){
     console.error("Supabase load error:", err);
     cloudReady = false;
     setSyncStatus("Cloud sync error");
-    alert("Cloud sync could not load. Make sure Row Level Security is OFF for crm_data, and confirm the id=1 row exists.");
+    alert("Cloud sync could not load. Make sure the Supabase table is named crm-data, RLS is OFF, and the id=1 row exists.");
   } finally {
     isLoadingCloud = false;
     render();
@@ -344,7 +344,7 @@ async function saveToCloud(initial=false){
     const payload = { id: 1, data: state, updated_at: new Date().toISOString() };
 
     const { error } = await sb
-      .from("crm_data")
+      .from("crm-data")
       .upsert(payload, { onConflict: "id" });
 
     if(error) throw error;

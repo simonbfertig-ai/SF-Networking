@@ -1,4 +1,4 @@
-const CACHE_NAME = "simon-networking-cloud-v1";
+const CACHE_NAME = "simon-networking-cloud-fixed-v1";
 const ASSETS = [
   "./",
   "./index.html",
