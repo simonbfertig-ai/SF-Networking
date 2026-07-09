@@ -1,0 +1,2140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simon Networking</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+:root{
+  --paper:#FAF8F3; --surface:#FFFFFF; --surface-2:#F2EEE5; --column:#F4F0E7;
+  --ink:#211F1A; --ink-soft:#524E45; --muted:#8C867A; --faint:#B6AFA1;
+  --line:#E6E0D4; --line-soft:#EFEADF;
+  --accent:#1C6E63; --accent-soft:#E4EEEB;
+  --danger:#A8453C; --danger-soft:#F3E3E1;
+  --nav:#2f5f9f; --nav-soft:#c2cdde; --nav-accent:#ba0d2e;
+  --radius:12px; --radius-sm:8px;
+  --shadow:0 1px 2px rgba(33,31,26,.05),0 6px 20px rgba(33,31,26,.05);
+  --font:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--font);font-size:15px}
+button,input,select,textarea{font:inherit}
+button{cursor:pointer;border:0;background:none;color:inherit}
+a{color:var(--accent);text-decoration:none;font-weight:650}
+#root{display:flex;min-height:100vh}
+.sidebar{width:214px;flex:0 0 214px;background:var(--nav);color:var(--nav-soft);height:100vh;position:sticky;top:0;padding:18px 10px;overflow-y:auto}
+.nav-brand{padding:4px 6px 20px}
+.nav-brand h1{margin:0;color:#fff;font-size:21px;letter-spacing:-.02em}
+.nav-brand p{margin:5px 0 0;color:#8295b2;font-size:12px;line-height:1.35}
+.nav-item{width:100%;text-align:left;padding:10px 13px;border-radius:10px;margin:2px 0;color:#c2cdde;font-size:14px;font-weight:650;position:relative}
+.nav-item:hover{background:rgba(255,255,255,.06);color:#fff}
+.nav-item.on{background:rgba(255,255,255,.09);color:#fff}
+.nav-item.on:before{content:"";position:absolute;left:-10px;top:7px;bottom:7px;width:4px;border-radius:0 4px 4px 0;background:var(--nav-accent)}
+.main{flex:1;min-width:0}
+.topbar{display:flex;align-items:center;gap:14px;padding:16px 24px;border-bottom:1px solid var(--line);background:var(--paper);position:sticky;top:0;z-index:20}
+.brand{display:flex;align-items:baseline;gap:10px;min-width:max-content}
+.brand h2{margin:0;font-size:19px}
+.count{font-size:13px;color:var(--muted);font-weight:550}
+.search{flex:1;max-width:420px}
+.search input{width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--surface);outline:none}
+.search input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.btn-primary{display:inline-flex;align-items:center;gap:7px;padding:9px 15px;background:var(--ink);color:#fff;border-radius:var(--radius-sm);font-weight:650;font-size:14px;white-space:nowrap}
+.btn-ghost{display:inline-flex;align-items:center;gap:6px;padding:8px 13px;border:1px solid var(--line);border-radius:var(--radius-sm);font-weight:650;font-size:13.5px;background:var(--surface);white-space:nowrap}
+.btn-danger{display:inline-flex;align-items:center;padding:8px 13px;border-radius:var(--radius-sm);font-weight:650;font-size:13.5px;background:var(--danger-soft);color:var(--danger);white-space:nowrap}
+.controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 24px;border-bottom:1px solid var(--line-soft)}
+.chip{display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border:1px solid var(--line);border-radius:999px;font-size:12.5px;font-weight:650;color:var(--ink-soft);background:var(--surface)}
+.chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.content{padding:16px 24px 40px}
+.list{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+.row{display:grid;grid-template-columns:1.45fr 1fr .9fr .8fr 1.05fr 1.15fr;gap:14px;align-items:center;padding:13px 18px;border-bottom:1px solid var(--line-soft);cursor:pointer}
+.row.people{grid-template-columns:1.25fr 1fr .9fr 1.15fr 1fr 1fr 1fr .7fr}
+.row:last-child{border-bottom:0}
+.row:hover{background:var(--surface-2)}
+.row.head{cursor:default;background:transparent;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.row.head:hover{background:transparent}
+.nm{font-weight:700}
+.sub{font-size:13px;color:var(--muted);margin-top:2px}
+.truncate{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pill{display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;font-size:12px;font-weight:700;background:var(--surface-2);color:var(--ink-soft);white-space:nowrap}
+.pill.green{background:#E4EEEB;color:#1C6E63}
+.pill.blue{background:#EAF1F8;color:#2F66A8}
+.pill.red{background:#F3E3E1;color:#A8453C}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px;margin-bottom:16px}
+.card h3{margin:0 0 12px;font-size:17px}
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:70px 24px;color:var(--muted)}
+.empty h3{margin:0 0 6px;color:var(--ink)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow)}
+.kpi .num{font-size:30px;font-weight:750;letter-spacing:-.02em}
+.kpi .lbl{font-size:13px;color:var(--muted);font-weight:650;margin-top:5px}
+.drawer-bg{display:none;position:fixed;inset:0;background:rgba(33,31,26,.32);z-index:40}
+.drawer{position:fixed;top:0;right:0;height:100%;width:650px;max-width:100%;background:var(--paper);z-index:50;box-shadow:-10px 0 40px rgba(33,31,26,.14);transform:translateX(100%);transition:transform .22s;display:flex;flex-direction:column}
+.drawer-bg.show{display:block}
+.drawer.show{transform:translateX(0)}
+.drawer-head{padding:20px 22px 16px;border-bottom:1px solid var(--line);display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.drawer-head h2{font-size:21px;margin:0 0 3px}
+.drawer-body{flex:1;overflow:auto;padding:18px 22px}
+.drawer-foot{padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:10px}
+.defgrid{display:grid;grid-template-columns:140px 1fr;gap:9px 16px;font-size:14px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-sm);padding:13px 15px;margin-bottom:16px}
+.defgrid dt{color:var(--muted);font-size:12.5px}
+.defgrid dd{margin:0;word-break:break-word}
+.subtabs{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px}
+.subtabs button{padding:7px 12px;border:1px solid var(--line);border-radius:999px;font-size:12.5px;font-weight:650;background:var(--surface)}
+.subtabs button.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.subtab{display:none}
+.subtab.on{display:block}
+.task{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px}
+.task.done{opacity:.55;text-decoration:line-through}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(33,31,26,.32);z-index:70;align-items:flex-start;justify-content:center;padding:36px 18px;overflow:auto}
+.modal-bg.show{display:flex}
+.modal{background:var(--paper);width:100%;max-width:960px;border-radius:16px;box-shadow:0 20px 60px rgba(33,31,26,.25);overflow:hidden}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid var(--line)}
+.modal-head h2{margin:0;font-size:18px}
+.modal-body{padding:18px 24px}
+.modal-foot{display:flex;gap:10px;justify-content:flex-end;padding:14px 24px;border-top:1px solid var(--line)}
+.fg{margin-bottom:14px}
+.fg label{display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);margin-bottom:6px}
+.fg input,.fg select,.fg textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--surface);outline:none}
+.fg textarea{min-height:90px;resize:vertical}
+.fg-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.map-grid{display:grid;grid-template-columns:230px 1fr;gap:10px 14px;align-items:center}
+.map-grid label{font-size:13px;color:var(--ink-soft);font-weight:650}
+.map-grid select{padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.preview-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:14px;background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.preview-table th,.preview-table td{border-bottom:1px solid var(--line-soft);padding:8px;text-align:left;vertical-align:top}
+.preview-table th{font-size:11px;text-transform:uppercase;color:var(--muted)}
+.notice{background:var(--accent-soft);color:var(--accent);border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.45;margin-bottom:14px}
+.warn{background:#FFF7E6;color:#9a6a12;border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.45;margin-bottom:14px}
+@media(max-width:760px){
+  #root{display:block}
+  .sidebar{position:static;width:100%;height:auto;display:flex;gap:4px;overflow:auto;padding:8px}
+  .nav-brand{display:none}
+  .nav-item{width:auto;white-space:nowrap}
+  .nav-item.on:before{display:none}
+  .topbar{flex-wrap:wrap}
+  .search{order:3;max-width:none;flex-basis:100%}
+  .row,.row.people{grid-template-columns:1.25fr 1fr .9fr 1.15fr 1fr 1fr 1fr .7fr}
+  .hide-sm{display:none}
+  .kpis,.grid{grid-template-columns:1fr}
+}
+
+
+
+.connection-select{
+  width:125px;
+  padding:7px 10px;
+  border-radius:999px;
+  border:1px solid transparent;
+  font-size:12px;
+  font-weight:800;
+  outline:none;
+}
+.connection-select.conn-have-not-sent{background:#e5e7eb;color:#374151;border-color:#d1d5db;}
+.connection-select.conn-pending{background:#fef3c7;color:#92400e;border-color:#f59e0b;}
+.connection-select.conn-accepted{background:#dcfce7;color:#166534;border-color:#22c55e;}
+.connection-select.conn-rejected{background:#fee2e2;color:#991b1b;border-color:#ef4444;}
+
+
+.status-select{
+  width:155px;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid var(--line);
+  background:var(--surface-2);
+  color:var(--ink-soft);
+  font-size:12px;
+  font-weight:800;
+  outline:none;
+}
+.status-select.people{width:175px;}
+
+
+.status-company-research{background:#e5e7eb!important;color:#374151!important;}
+.status-company-sent{background:#dbeafe!important;color:#1d4ed8!important;}
+.status-person-none{background:#e5e7eb!important;color:#374151!important;}
+.status-person-sent{background:#fbcfe8!important;color:#9d174d!important;}
+.status-person-heard{background:#e9d5ff!important;color:#6b21a8!important;}
+.status-person-call{background:#dcfce7!important;color:#166534!important;border:1px solid #22c55e!important;}
+.status-person-noresponse{background:#fed7aa!important;color:#9a3412!important;}
+
+
+.stats-wrap{display:flex;justify-content:center;align-items:center;padding:28px 12px;}
+.stats-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:24px;width:min(900px,100%);}
+.stats-card h3{margin:0 0 6px;font-size:20px;}
+.stats-card .sub{margin-bottom:18px;}
+.pie-layout{display:flex;gap:28px;align-items:center;justify-content:center;flex-wrap:wrap;}
+.pie-svg{width:360px;height:360px;max-width:100%;}
+.pie-legend{display:grid;gap:10px;min-width:260px;}
+.legend-row{display:flex;align-items:center;justify-content:space-between;gap:18px;font-weight:700;}
+.legend-left{display:flex;align-items:center;gap:10px;}
+.legend-swatch{width:14px;height:14px;border-radius:4px;border:1px solid rgba(0,0,0,.12);}
+
+
+
+.task-actions{
+  display:flex!important;
+  flex-direction:row!important;
+  align-items:center!important;
+  justify-content:flex-start!important;
+  gap:8px!important;
+  flex-wrap:nowrap!important;
+  white-space:nowrap!important;
+}
+.task-actions .btn-ghost,
+.task-actions .btn-danger{
+  display:inline-flex!important;
+  margin:0!important;
+}
+
+
+</style>
+
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#2f5f9f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Simon Networking">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="icon-192.png">
+</head>
+<body>
+<div id="root">
+  <aside class="sidebar">
+    <div class="nav-brand">
+      <h1>Simon Networking</h1>
+      <p>Built for outreach, contacts, Outlook email, cadence, and recruiting follow-up.</p>
+    </span></div>
+    <button class="nav-item on" data-page="companies">Companies</button>
+    <button class="nav-item" data-page="people">People</button>
+    <button class="nav-item" data-page="tasks">Tasks</button>
+    <button class="nav-item" data-page="cadence">Cadence</button>
+    <button class="nav-item" data-page="templates">Templates</button>
+    <button class="nav-item" data-page="dashboard">Statistics</button>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="brand"><h2 id="pageTitle">Companies</h2><span class="count" id="count"></span></div>
+      <div class="search"><input id="search" placeholder="Search companies & people…"></div>
+      <button class="btn-ghost" id="importBtn">Import</button>
+      <button class="btn-primary" id="newBtn">New company</button>
+      
+      <button class="btn-danger" id="resetBtn">Reset data</button>
+    </header>
+    <div class="controls" id="controls"></div>
+    <div class="content" id="content"></div>
+  </div>
+</div>
+
+<div class="drawer-bg" id="drawerBg"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-head">
+    <div><h2 id="drawerTitle"></h2><div class="sub" id="drawerSub"></div></div>
+    <button class="btn-ghost" id="closeDrawer">Close</button>
+  </div>
+  <div class="drawer-body" id="drawerBody"></div>
+  <div class="drawer-foot" id="drawerFoot"></div>
+</div>
+
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <div class="modal-head"><h2 id="modalTitle"></h2><button class="btn-ghost" id="closeModal">Close</button></div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-foot" id="modalFoot"></div>
+  </div>
+</div>
+
+<script>
+const LS_KEY = "simon_recruiting_crm_v5";
+let state = JSON.parse(localStorage.getItem(LS_KEY) || "null") || {
+  companies: [],
+  people: [],
+  tasks: [],
+  cadence: [],
+  templates: [
+    {name:"LinkedIn Connect", body:"Hi {{FirstName}}, I came across your profile and saw your experience at {{Company}}. I am interested in learning more about the industry and would be grateful to connect."},
+    {name:"Intro Email", body:"Hi {{FirstName}},\\n\\nI hope you're doing well. My name is {{Your Name}}, and I am interested in learning more about {{Company}} and your experience there. Would you be open to a quick 15-minute call sometime next week?\\n\\nBest,\\n{{Your Name}}"},
+    {name:"Follow-Up", body:"Hi {{FirstName}},\\n\\nI wanted to follow up on my note in case it got buried. I would really appreciate the chance to briefly connect and learn more about your experience at {{Company}}.\\n\\nBest,\\n{{Your Name}}"},
+    {name:"Thank You", body:"Hi {{FirstName}},\\n\\nThank you again for taking the time to speak with me. I really enjoyed learning about your experience at {{Company}} and appreciate the advice you shared.\\n\\nBest,\\n{{Your Name}}"}
+  ]
+};
+
+let currentPage = "companies";
+let currentFilter = "";
+let importedRows = [];
+let importedHeaders = [];
+let headerIndex = 0;
+
+const pages = {
+  companies: {title:"Companies", newLabel:"New company"},
+  people: {title:"People", newLabel:"New person"},
+  tasks: {title:"Tasks", newLabel:"New task"},
+  cadence: {title:"Cadence", newLabel:"New cadence"},
+  templates: {title:"Templates", newLabel:"New template"},
+  dashboard: {title:"Statistics", newLabel:"Add target"}
+};
+
+function save(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); }
+function esc(v){return String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;")}
+function id(){return Math.random().toString(36).slice(2)+Date.now()}
+function same(a,b){return String(a||"").trim().toLowerCase()===String(b||"").trim().toLowerCase()}
+function protocol(url){ if(!url) return ""; return /^https?:\/\//i.test(url) ? url : "https://" + url; }
+function today(){return new Date().toISOString().slice(0,10)}
+function pill(v){
+  let cls="";
+  if(["Connected","Heard back","Had Call","Offer","Done"].includes(v)) cls="green";
+  if(["Have not sent email","Sent email","Emailed","Applied","Interviewing"].includes(v)) cls="blue";
+  if(["Rejected","Do Not Contact"].includes(v)) cls="red";
+  return `<span class="pill ${cls}">${esc(v||"")}</span>`;
+}
+function contactCount(company){ return state.people.filter(p=>same(p.company,company)).length; }
+function taskCount(company){ return state.tasks.filter(t=>same(t.company,company)&&normalizeTaskStatus(t.status)!=="Complete").length; }
+
+document.querySelectorAll(".nav-item").forEach(btn=>{
+  btn.onclick=()=>{ currentPage=btn.dataset.page; currentFilter=""; render();
+setTimeout(refreshStatusColors,0); };
+});
+document.getElementById("search").oninput=render;
+document.getElementById("closeDrawer").onclick=closeDrawer;
+document.getElementById("drawerBg").onclick=closeDrawer;
+document.getElementById("closeModal").onclick=closeModal;
+document.getElementById("importBtn").onclick=openImportModal;
+document.getElementById("newBtn").onclick=()=>openNewForPage();
+document.getElementById("resetBtn").onclick=resetData;
+
+
+function updateNewButtonVisibility(){
+  const btn = document.getElementById("newBtn");
+  if(!btn) return;
+  btn.style.display = currentPage === "dashboard" ? "none" : "";
+}
+
+function render(){
+  document.querySelectorAll(".nav-item").forEach(b=>b.classList.toggle("on",b.dataset.page===currentPage));
+  document.getElementById("pageTitle").textContent = pages[currentPage].title;
+  document.getElementById("newBtn").textContent = pages[currentPage].newLabel;
+  updateNewButtonVisibility();
+  renderControls();
+  if(currentPage==="companies") renderCompanies();
+  if(currentPage==="people") renderPeople();
+  if(currentPage==="tasks") renderTasks();
+  if(currentPage==="cadence") renderCadence();
+  if(currentPage==="templates") renderTemplates();
+  if(currentPage==="dashboard") renderDashboard();
+}
+
+function renderControls(){
+  const c=document.getElementById("controls");
+  c.innerHTML="";
+  if(currentPage==="companies"){
+    const statuses=["","Researching Company","Sent Emails"];
+    c.innerHTML=statuses.map(s=>`<button class="chip ${currentFilter===s?'on':''}" onclick="currentFilter='${esc(s)}';render()">${s||"All companies"}</button>`).join("");
+  }
+  if(currentPage==="people"){
+    const statuses=["","Have not sent email","Sent email","Heard back","Call scheduled","Have not heard back"];
+    c.innerHTML=statuses.map(s=>`<button class="chip ${currentFilter===s?'on':''}" onclick="currentFilter='${esc(s)}';render()">${s||"All people"}</button>`).join("");
+  }
+}
+
+
+function companyStatusSelect(companyId, value){
+  const v = normalizeCompanyStatus(value);
+  return `<select class="status-select" onchange="updateCompanyStatus('${companyId}', this.value);refreshStatusColors()" onclick="event.stopPropagation()">
+    <option ${v==="Researching Company" ? "selected" : ""}>Researching Company</option>
+    <option ${v==="Sent Emails" ? "selected" : ""}>Sent Emails</option>
+  </select>`;
+}
+
+function updateCompanyStatus(companyId, value){
+  const c = state.companies.find(x => x.id === companyId);
+  if(!c) return;
+  c.status = normalizeCompanyStatus(value);
+  save();
+  render();
+setTimeout(refreshStatusColors,0);
+}
+
+function peopleStatusSelect(personId, value){
+  const v = normalizePeopleStatus(value);
+  return `<select class="status-select people" onchange="updatePeopleStatus('${personId}', this.value);refreshStatusColors()" onclick="event.stopPropagation()">
+    <option ${v==="Have not sent email" ? "selected" : ""}>Have not sent email</option>
+    <option ${v==="Sent email" ? "selected" : ""}>Sent email</option>
+    <option ${v==="Heard back" ? "selected" : ""}>Heard back</option>
+    <option ${v==="Call scheduled" ? "selected" : ""}>Call scheduled</option>
+    <option ${v==="Have not heard back" ? "selected" : ""}>Have not heard back</option>
+  </select>`;
+}
+
+function updatePeopleStatus(personId, value){
+  const p = state.people.find(x => x.id === personId);
+  if(!p) return;
+  p.status = normalizePeopleStatus(value);
+  save();
+  render();
+setTimeout(refreshStatusColors,0);
+}
+
+
+function refreshStatusColors(){
+ document.querySelectorAll('select.status-select').forEach(s=>{
+   s.classList.remove('status-company-research','status-company-sent','status-person-none','status-person-sent','status-person-heard','status-person-call','status-person-noresponse');
+   const t=s.value;
+   if(t==='Researching Company') s.classList.add('status-company-research');
+   else if(t==='Sent Emails') s.classList.add('status-company-sent');
+   else if(t==='Have not sent email') s.classList.add('status-person-none');
+   else if(t==='Sent email') s.classList.add('status-person-sent');
+   else if(t==='Heard back') s.classList.add('status-person-heard');
+   else if(t==='Call scheduled') s.classList.add('status-person-call');
+   else if(t==='Have not heard back') s.classList.add('status-person-noresponse');
+ });
+}
+function renderCompanies(){
+  const q=document.getElementById("search").value.toLowerCase();
+  let rows=state.companies.filter(c=>(!currentFilter||normalizeCompanyStatus(c.status)===currentFilter) && [c.name,c.website,c.industry,c.location,c.status,c.notes].join(" ").toLowerCase().includes(q));
+  document.getElementById("count").textContent = `${rows.length} companies`;
+  document.getElementById("content").innerHTML = rows.length ? `
+    <div class="card">
+<h3>Bulk Company Actions</h3>
+<select id="bulkCompanyStatus">
+<option value="">Change status...</option>
+<option>Researching Company</option>
+<option>Sent Emails</option>
+</select>
+<button class="btn-primary" onclick="bulkUpdateCompanyStatus()">Apply to Selected</button>
+<button class="btn-ghost" onclick="clearSelectedCompanies()">Clear Selection</button>
+</div>
+<div class="list">
+      <div class="row head"><div>Company</div><div>Status</div><div>Contacts</div><div>Open Tasks</div><div>Website</div><div>Actions</div></div>
+      ${rows.map(c=>`
+        <div class="row" onclick="openCompany('${c.id}')">
+          <div><div><input type="checkbox" onclick="event.stopPropagation();toggleCompanySelection('${c.id}',this.checked)" ${selectedCompanies.has(c.id)?"checked":""} style="width:auto;margin-right:8px"><span class="nm">${esc(c.name)}</div><div class="sub">${esc(c.industry||"")}${c.location?" • "+esc(c.location):""}</div></div>
+          <div>${companyStatusSelect(c.id, c.status)}</div>
+          <div>${contactCount(c.name)}</div>
+          <div>${taskCount(c.name)}</div>
+          <div class="truncate">${c.website?`<a href="${esc(protocol(c.website))}" onclick="event.stopPropagation()" target="_blank">${esc(c.website)}</a>`:""}</div>
+          <div><button class="btn-ghost" onclick="event.stopPropagation(); editCompany('${c.id}')">Edit</button></div>
+        </div>
+      `).join("")}
+    </div>` : `<div class="empty"><h3>No companies yet</h3><p>Import your Excel sheet or add a company manually.</p></div>`;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function normalizeConnectionStatus(value){
+  const s = String(value || "").trim().toLowerCase();
+  if(s === "pending") return "Pending";
+  if(s === "accepted") return "Accepted";
+  if(s === "rejected") return "Rejected";
+  return "Have not sent";
+}
+
+function connectionClass(value){
+  const v = normalizeConnectionStatus(value);
+  if(v === "Pending") return "conn-pending";
+  if(v === "Accepted") return "conn-accepted";
+  if(v === "Rejected") return "conn-rejected";
+  return "conn-have-not-sent";
+}
+
+function connectionSelect(personId, value){
+  const v = normalizeConnectionStatus(value);
+  return `<select class="connection-select ${connectionClass(v)}" onchange="updateConnectionStatus('${personId}', this.value)" onclick="event.stopPropagation()">
+    <option ${v==="Have not sent" ? "selected" : ""}>Have not sent</option>
+    <option ${v==="Pending" ? "selected" : ""}>Pending</option>
+    <option ${v==="Accepted" ? "selected" : ""}>Accepted</option>
+    <option ${v==="Rejected" ? "selected" : ""}>Rejected</option>
+  </select>`;
+}
+
+function updateConnectionStatus(personId, value){
+  const p = state.people.find(x => x.id === personId);
+  if(!p) return;
+  p.connection = normalizeConnectionStatus(value);
+  save();
+  render();
+setTimeout(refreshStatusColors,0);
+}
+
+function normalizeAllConnectionStatuses(){
+  state.people.forEach(p => {
+    p.connection = normalizeConnectionStatus(p.connection);
+  });
+  save();
+}
+
+
+function renderPeople(){
+  if(typeof ensureCadenceTemplates === "function") ensureCadenceTemplates();
+  normalizeAllConnectionStatuses();
+
+  const q=document.getElementById("search").value.toLowerCase();
+  let rows=state.people.filter(p=>
+    (!currentFilter||normalizePeopleStatus(p.status)===currentFilter) &&
+    [p.name,p.company,p.title,p.email,p.linkedin,p.status,p.notes,p.connection,(typeof cadenceNameForPerson==="function"?cadenceNameForPerson(p):"")].join(" ").toLowerCase().includes(q)
+  );
+
+  document.getElementById("count").textContent = `${rows.length} people`;
+
+  const hasCadenceBuilder = typeof cadenceNameForPerson === "function" && typeof assignSelectedPeopleToCadence === "function";
+  const cadenceCard = hasCadenceBuilder ? `
+    <div class="card">
+      <h3>Move Selected People to a Cadence</h3>
+      <div class="sub">Select people below, choose a cadence, then assign them. This starts their cadence today.</div>
+      <div class="fg-2" style="margin-top:12px">
+        <div class="fg">
+          <label>Cadence</label>
+          <select id="bulkCadenceSelect">
+            <option value="">Choose cadence...</option>
+            ${(state.cadenceTemplates || []).map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join("")}
+          </select>
+        </div>
+        <div class="fg">
+          <label>Start Date</label>
+          <input id="bulkCadenceStartDate" type="date" value="${today()}">
+        </div>
+      </div>
+      <button class="btn-primary" onclick="assignSelectedPeopleToCadence()">Assign Selected</button>
+      <button class="btn-ghost" onclick="clearSelectedPeople()">Clear Selection</button>
+    </div>` : "";
+
+  document.getElementById("content").innerHTML = `
+    ${cadenceCard}
+    ${rows.length ? `
+    <div class="list">
+      <div class="row people head">
+        <div>Select / Person</div>
+        <div>Company</div>
+        <div>Status</div>
+        <div>Email</div>
+        <div>LinkedIn Page</div>
+        <div>Cadence</div>
+        <div>Connections</div>
+        <div>Actions</div>
+      </div>
+      ${rows.map(p=>`
+        <div class="row people" onclick="openPerson('${p.id}')">
+          <div>
+            ${hasCadenceBuilder ? `<input type="checkbox" ${selectedPeopleForCadence.has(p.id) ? "checked" : ""} onclick="event.stopPropagation(); togglePersonSelection('${p.id}', this.checked)" style="width:auto;margin-right:8px">` : ""}
+            <span class="nm">${esc(p.name)}</span>
+            <div class="sub">${esc(p.title||"")}</div>
+          </div>
+          <div>${esc(p.company||"")}</div>
+          <div>${peopleStatusSelect(p.id, p.status)}</div>
+          <div class="truncate">${p.email?`<a href="#" onclick="event.stopPropagation(); chooseEmailForPerson('${p.id}')">${esc(p.email)}</a>`:""}</div>
+          <div class="truncate">${p.linkedin?`<a href="#" onclick="event.stopPropagation(); openLinkedInWithNote('${p.id}')">LinkedIn</a>`:""}</div>
+          <div>
+            ${hasCadenceBuilder && cadenceNameForPerson(p) ? `<div class="nm">${esc(cadenceNameForPerson(p))}</div><div class="sub">${esc(cadenceNextDueText(p))}</div>` : `<span class="sub">No cadence</span>`}
+          </div>
+          <div>${connectionSelect(p.id, p.connection)}</div>
+          <div><button class="btn-ghost" onclick="event.stopPropagation(); editPerson('${p.id}')">Edit</button></div>
+        </div>
+      `).join("")}
+    </div>` : `<div class="empty"><h3>No people yet</h3><p>Import contacts from Excel or add people manually.</p></div>`}
+  `;
+}
+
+
+/* ---------------- Cadence Steps Automatically Show Under Tasks ---------------- */
+
+function ensureCadenceTaskFields(){
+  if(!state.cadenceTemplates) state.cadenceTemplates = [];
+  state.people.forEach(p => {
+    if(!Array.isArray(p.completedCadenceSteps)) p.completedCadenceSteps = [];
+    if(!Array.isArray(p.cadenceTaskStatuses)) p.cadenceTaskStatuses = [];
+  });
+}
+
+function cadenceStepTaskId(person, cadence, step, idx){
+  return `cadence_${person.id}_${cadence.id}_${person.cadenceStartDate || today()}_${idx}_${step.day}`;
+}
+
+function cadenceStepDueDate(person, step){
+  const start = new Date((person.cadenceStartDate || today()) + "T00:00:00");
+  const due = new Date(start);
+  due.setDate(start.getDate() + Number(step.day || 0));
+  return due.toISOString().slice(0,10);
+}
+
+function getCadenceTaskStatus(person, taskId){
+  if((person.completedCadenceSteps || []).includes(taskId)) return "Complete";
+  const saved = (person.cadenceTaskStatuses || []).find(x => x.id === taskId);
+  return normalizeTaskStatus(saved?.status || "New Task");
+}
+
+function setCadenceTaskStatus(personId, taskId, status){
+  const p = state.people.find(x => x.id === personId);
+  if(!p) return;
+  if(!Array.isArray(p.cadenceTaskStatuses)) p.cadenceTaskStatuses = [];
+  if(!Array.isArray(p.completedCadenceSteps)) p.completedCadenceSteps = [];
+
+  p.cadenceTaskStatuses = p.cadenceTaskStatuses.filter(x => x.id !== taskId);
+  p.cadenceTaskStatuses.push({id: taskId, status: normalizeTaskStatus(status)});
+
+  if(normalizeTaskStatus(status) === "Complete"){
+    if(!p.completedCadenceSteps.includes(taskId)) p.completedCadenceSteps.push(taskId);
+  } else {
+    p.completedCadenceSteps = p.completedCadenceSteps.filter(x => x !== taskId);
+  }
+
+  save();
+  render();
+setTimeout(refreshStatusColors,0);
+}
+
+
+function editCadenceTask(personId, taskId){
+  const task = getCadenceGeneratedTasks().find(t => t.id === taskId && t.personId === personId);
+  if(!task) return;
+  const person = state.people.find(p => p.id === personId);
+  if(person) openPerson(person.id);
+}
+
+function deleteCadenceTask(personId, taskId){
+  const p = state.people.find(x => x.id === personId);
+  if(!p) return;
+  if(!Array.isArray(p.cadenceTaskStatuses)) p.cadenceTaskStatuses = [];
+  if(!Array.isArray(p.completedCadenceSteps)) p.completedCadenceSteps = [];
+
+  p.cadenceTaskStatuses = p.cadenceTaskStatuses.filter(x => x.id !== taskId);
+  p.completedCadenceSteps = p.completedCadenceSteps.filter(x => x !== taskId);
+  p.cadenceTaskStatuses.push({id: taskId, status: "Hidden"});
+
+  save();
+  render();
+setTimeout(refreshStatusColors,0);
+}
+
+function getCadenceGeneratedTasks(){
+  ensureCadenceTemplates();
+  ensureCadenceTaskFields();
+
+  const tasks = [];
+
+  state.people.forEach(person => {
+    if(!person.cadenceId) return;
+
+    const cadence = cadenceById(person.cadenceId);
+    if(!cadence || !Array.isArray(cadence.steps)) return;
+
+    const steps = [...cadence.steps].sort((a,b)=>Number(a.day || 0) - Number(b.day || 0));
+
+    steps.forEach((step, idx) => {
+      const taskId = cadenceStepTaskId(person, cadence, step, idx);
+      const saved = (person.cadenceTaskStatuses || []).find(x => x.id === taskId);
+      if(saved?.status === "Hidden") return;
+
+      const templateName = step.template || step.action || "";
+      tasks.push({
+        id: taskId,
+        source: "cadence",
+        personId: person.id,
+        person: person.name || "",
+        company: person.company || "",
+        type: step.action || templateName || "Cadence Step",
+        template: templateName,
+        due: cadenceStepDueDate(person, step),
+        status: getCadenceTaskStatus(person, taskId),
+        notes: `${cadence.name || "Cadence"}${templateName ? " • " + templateName : ""}`
+      });
+    });
+  });
+
+  return tasks;
+}
+
+function updateCadenceTaskStatus(personId, taskId, newStatus){
+  setCadenceTaskStatus(personId, taskId, newStatus);
+}
+
+function runCadenceTask(personId, taskId){
+  const task = getCadenceGeneratedTasks().find(t => t.id === taskId && t.personId === personId);
+  const person = state.people.find(p => p.id === personId);
+  if(!task || !person) return;
+
+  const action = String(task.type || "").toLowerCase();
+
+  if(action.includes("linkedin")){
+    openLinkedInWithNote(person.id);
+    return;
+  }
+
+  if(action.includes("email") || action.includes("follow") || action.includes("thank")){
+    chooseEmailForPerson(person.id, task.template || task.type || "Intro Email");
+    return;
+  }
+
+  openPerson(person.id);
+}
+
+
+
+
+
+function renderTasks(){
+  ensureCadenceTaskFields();
+
+  const q=document.getElementById("search").value.toLowerCase();
+
+  const manualTasks = state.tasks
+    .filter(t=>[t.type,t.company,t.person,t.status,t.notes].join(" ").toLowerCase().includes(q))
+    .map(t => ({...t, source:"manual", status: normalizeTaskStatus(t.status)}));
+
+  const cadenceTasks = getCadenceGeneratedTasks()
+    .filter(t=>[t.type,t.company,t.person,t.status,t.notes,t.template].join(" ").toLowerCase().includes(q));
+
+  const rows = [...manualTasks, ...cadenceTasks]
+    .sort((a,b)=>(a.due||"9999-99-99").localeCompare(b.due||"9999-99-99"));
+
+  const newTasks = rows.filter(t => normalizeTaskStatus(t.status) === "New Task");
+  const activeTasks = rows.filter(t => normalizeTaskStatus(t.status) === "Active");
+  const queuedTasks = rows.filter(t => normalizeTaskStatus(t.status) === "Queued");
+  const completeTasks = rows.filter(t => normalizeTaskStatus(t.status) === "Complete");
+
+  document.getElementById("count").textContent = `${rows.length} tasks`;
+
+  document.getElementById("content").innerHTML = `
+    <div class="card">
+      <h3>Task Board</h3>
+      <div class="sub">
+        Manual tasks and cadence tasks show here. When you assign someone to a cadence, each cadence step appears here with its due date and starts in <b>New Task</b>.
+      </div>
+      <button class="btn-primary" onclick="taskForm()">Add Manual Task</button>
+    </div>
+
+    <div class="card">
+      <h3>New Task</h3>
+      ${newTasks.length ? taskTable(newTasks) : `<div class="empty"><p>No new tasks.</p></div>`}
+    </div>
+
+    <div class="card">
+      <h3>Active</h3>
+      ${activeTasks.length ? taskTable(activeTasks) : `<div class="empty"><p>No active tasks.</p></div>`}
+    </div>
+
+    <div class="card">
+      <h3>Queued</h3>
+      ${queuedTasks.length ? taskTable(queuedTasks) : `<div class="empty"><p>No queued tasks.</p></div>`}
+    </div>
+
+    <div class="card">
+      <h3>Complete</h3>
+      ${completeTasks.length ? taskTable(completeTasks) : `<div class="empty"><p>No complete tasks.</p></div>`}
+    </div>
+  `;
+}
+
+function taskTable(rows){
+  return `
+    <div class="list">
+      <div class="row head"><div>Task</div><div>Company</div><div>Person</div><div>Due</div><div>Status</div><div>Actions</div></div>
+      ${rows.map(t=>`
+        <div class="row">
+          <div>
+            <div class="nm">${esc(t.type || "")}</div>
+            <div class="sub">${t.source === "cadence" ? "Cadence • " : ""}${esc(t.notes || "")}</div>
+          </div>
+          <div>${esc(t.company || "")}</div>
+          <div>${esc(t.person || "")}</div>
+          <div>${esc(t.due || "")}</div>
+          <div>
+            <select onchange="${t.source === "cadence" ? `updateCadenceTaskStatus('${t.personId}','${t.id}', this.value)` : `updateTaskStatus('${t.id}', this.value)`}" onclick="event.stopPropagation()">
+              <option ${normalizeTaskStatus(t.status)==="New Task" ? "selected" : ""}>New Task</option>
+              <option ${normalizeTaskStatus(t.status)==="Active" ? "selected" : ""}>Active</option>
+              <option ${normalizeTaskStatus(t.status)==="Queued" ? "selected" : ""}>Queued</option>
+              <option ${normalizeTaskStatus(t.status)==="Complete" ? "selected" : ""}>Complete</option>
+            </select>
+          </div>
+          <div style="display:flex; gap:6px; flex-wrap:wrap">
+            ${t.source === "cadence" 
+              ? `<button class="btn-ghost" onclick="runCadenceTask('${t.personId}','${t.id}')">Do</button><button class="btn-danger" onclick="deleteCadenceTask('${t.personId}','${t.id}')">Delete</button>`
+              : `<button class="btn-ghost" onclick="runManualTask('${t.id}')">Do</button><button class="btn-ghost" onclick="editTask('${t.id}')">Edit</button><button class="btn-danger" onclick="deleteTask('${t.id}')">Delete</button>`}
+          </div>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+
+function renderCadence(){
+  const q=document.getElementById("search").value.toLowerCase();
+  let rows=state.cadence.filter(e=>[e.type,e.company,e.person,e.subject,e.message].join(" ").toLowerCase().includes(q));
+  document.getElementById("count").textContent = `${rows.length} steps`;
+  document.getElementById("content").innerHTML = rows.length ? `
+    <div class="list">
+      <div class="row head"><div>Cadence</div><div>Company</div><div>Person</div><div>Date</div><div>Subject</div><div>Actions</div></div>
+      ${rows.map(e=>`
+        <div class="row" onclick="previewCadence('${e.id}')">
+          <div>${pill(e.type)}</div><div>${esc(e.company||"")}</div><div>${esc(e.person||"")}</div><div>${esc(e.date||"")}</div><div class="truncate">${esc(e.subject||"")}</div>
+          <div><button class="btn-ghost" onclick="event.stopPropagation(); editCadence('${e.id}')">Edit</button></div>
+        </div>`).join("")}
+    </div>` : `<div class="empty"><h3>No cadence yet</h3><p>Draft emails, LinkedIn messages, and follow-ups.</p></div>`;
+}
+
+function renderTemplates(){
+  document.getElementById("count").textContent = `${state.templates.length} templates`;
+  document.getElementById("content").innerHTML = `<div class="grid">${state.templates.map(t=>`
+    <div class="card">
+      <h3>${esc(t.name)}</h3>
+      <p class="sub" style="white-space:pre-wrap">${esc(t.body)}</p>
+      <button class="btn-ghost" onclick="editTemplate(${state.templates.indexOf(t)})">Edit</button>
+      <button class="btn-ghost" onclick="navigator.clipboard.writeText(\`${t.body.replaceAll("`","\\`")}\`)">Copy</button>
+    </div>`).join("")}</div>`;
+}
+
+
+function peopleStatusStats(){
+  const categories = [
+    {label:"Have not sent email", color:"#e5e7eb", text:"#374151"},
+    {label:"Sent email", color:"#fbcfe8", text:"#9d174d"},
+    {label:"Heard back", color:"#e9d5ff", text:"#6b21a8"},
+    {label:"Call scheduled", color:"#dcfce7", text:"#166534"},
+    {label:"Have not heard back", color:"#fed7aa", text:"#9a3412"}
+  ];
+
+  const total = state.people.length || 0;
+  return categories.map(cat => {
+    const count = state.people.filter(p => normalizePeopleStatus(p.status) === cat.label).length;
+    const pct = total ? (count / total * 100) : 0;
+    return {...cat, count, pct};
+  });
+}
+
+function polarToCartesian(cx, cy, r, angleDeg){
+  const angleRad = (angleDeg - 90) * Math.PI / 180.0;
+  return {x: cx + (r * Math.cos(angleRad)), y: cy + (r * Math.sin(angleRad))};
+}
+
+function pieSlicePath(cx, cy, r, startAngle, endAngle){
+  const start = polarToCartesian(cx, cy, r, endAngle);
+  const end = polarToCartesian(cx, cy, r, startAngle);
+  const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
+  return ["M", cx, cy, "L", start.x, start.y, "A", r, r, 0, largeArcFlag, 0, end.x, end.y, "Z"].join(" ");
+}
+
+function renderStatusPieChart(){
+  const stats = peopleStatusStats();
+  const total = state.people.length || 0;
+
+  if(!total){
+    return `<div class="empty"><h3>No people yet</h3><p>Import or add contacts to see the status breakdown.</p></div>`;
+  }
+
+  let angle = 0;
+  const slices = stats.map(s => {
+    const sweep = s.pct * 3.6;
+    const path = pieSlicePath(180, 180, 150, angle, angle + sweep);
+    const mid = angle + sweep / 2;
+    const labelPoint = polarToCartesian(180, 180, 92, mid);
+    angle += sweep;
+    return `
+      <path d="${path}" fill="${s.color}" stroke="#ffffff" stroke-width="3"></path>
+      ${s.pct >= 5 ? `<text x="${labelPoint.x}" y="${labelPoint.y}" text-anchor="middle" dominant-baseline="middle" font-size="13" font-weight="800" fill="${s.text}">${s.pct.toFixed(0)}%</text>` : ""}
+    `;
+  }).join("");
+
+  const legend = stats.map(s => `
+    <div class="legend-row">
+      <div class="legend-left">
+        <span class="legend-swatch" style="background:${s.color}"></span>
+        <span>${esc(s.label)}</span>
+      </div>
+      <span>${s.pct.toFixed(1)}% (${s.count})</span>
+    </div>
+  `).join("");
+
+  return `
+    <div class="stats-wrap">
+      <div class="stats-card">
+        <h3>People status breakdown</h3>
+        <div class="sub">Percentages are based on all ${total} people and add up to 100%.</div>
+        <div class="pie-layout">
+          <svg class="pie-svg" viewBox="0 0 360 360" role="img" aria-label="People status pie chart">
+            ${slices}
+            <circle cx="180" cy="180" r="58" fill="var(--surface)"></circle>
+            <text x="180" y="172" text-anchor="middle" font-size="26" font-weight="850" fill="var(--ink)">${total}</text>
+            <text x="180" y="198" text-anchor="middle" font-size="13" font-weight="700" fill="var(--muted)">People</text>
+          </svg>
+          <div class="pie-legend">${legend}</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+
+function renderDashboard(){
+  document.getElementById("count").textContent = "";
+  document.getElementById("content").innerHTML = renderStatusPieChart();
+}
+
+
+function openDrawer(title, sub, body, foot=""){
+  document.getElementById("drawerTitle").textContent=title;
+  document.getElementById("drawerSub").innerHTML=sub;
+  document.getElementById("drawerBody").innerHTML=body;
+  document.getElementById("drawerFoot").innerHTML=foot;
+  document.getElementById("drawerBg").classList.add("show");
+  document.getElementById("drawer").classList.add("show");
+}
+function closeDrawer(){
+  document.getElementById("drawerBg").classList.remove("show");
+  document.getElementById("drawer").classList.remove("show");
+}
+
+function openCompany(companyId){
+  const c=state.companies.find(x=>x.id===companyId);
+  if(!c) return;
+  const people=state.people.filter(p=>same(p.company,c.name));
+  const tasks=state.tasks.filter(t=>same(t.company,c.name));
+  const cadence=state.cadence.filter(e=>same(e.company,c.name));
+  openDrawer(c.name, `${esc(c.industry||"")} ${c.location?"• "+esc(c.location):""}`, `
+    <dl class="defgrid">
+      <dt>Status</dt><dd>${companyStatusSelect(c.id, c.status)}</dd>
+      <dt>Website</dt><dd>${c.website?`<a href="${esc(protocol(c.website))}" target="_blank">${esc(c.website)}</a>`:""}</dd>
+      <dt>Priority</dt><dd>${esc(c.priority||"")}</dd>
+      <dt>Notes</dt><dd>${esc(c.notes||"")}</dd>
+    </dl>
+    <div class="subtabs">
+      <button class="on" onclick="showSub('coPeople',this)">Employees / Contacts</button>
+      <button onclick="showSub('coTasks',this)">Tasks</button>
+      <button onclick="showSub('coCadence',this)">Cadence</button>
+    </div>
+    <div id="coPeople" class="subtab on">${people.length?people.map(p=>contactCard(p)).join(""):"<div class='empty'><p>No contacts attached.</p></div>"}</div>
+    <div id="coTasks" class="subtab">${tasks.length?tasks.map(t=>`<div class="task"><div><b>${esc(t.type)}</b><div class="sub">${esc(t.person||"")} ${t.due?"• "+esc(t.due):""}</div></div></div>`).join(""):"<div class='empty'><p>No tasks.</p></div>"}</div>
+    <div id="coCadence" class="subtab">${cadence.length?cadence.map(e=>`<div class="task"><div><b>${esc(e.type)}</b><div class="sub">${esc(e.person||"")} ${e.date?"• "+esc(e.date):""}</div></div></div>`).join(""):"<div class='empty'><p>No cadence steps.</p></div>"}</div>
+  `, `
+    <button class="btn-ghost" onclick="editCompany('${c.id}')">Edit company</button>
+    <button class="btn-ghost" onclick="prefillPerson('${esc(c.name)}')">Add contact</button>
+    <button class="btn-ghost" onclick="prefillTask('${esc(c.name)}')">Add task</button>
+    <button class="btn-ghost" onclick="prefillCadence('${esc(c.name)}')">Add cadence</button>
+  `);
+}
+
+function contactCard(p){
+  return `<div class="card">
+    <h3>${esc(p.name)}</h3>
+    <div class="sub">${esc(p.title||"")} ${p.status?"• "+esc(p.status):""}</div>
+    <p>${p.email?`Email: <a href="#" onclick="event.stopPropagation(); chooseEmailForPerson('${p.id}')">${esc(p.email)}</a><br>`:""}
+    ${p.linkedin?`LinkedIn Page: <a href="#" onclick="openLinkedInWithNote(\'${p.id}\')">${esc(p.linkedin)}</a><br>`:""}
+    ${p.phone?`Phone: ${esc(p.phone)}<br>`:""}</p>
+    <button class="btn-ghost" onclick="event.stopPropagation(); chooseEmailForPerson('${p.id}')">Email with Outlook</button>
+    ${p.linkedin?`<button class="btn-ghost" onclick="event.stopPropagation(); openLinkedInWithNote('${p.id}')">Connect on LinkedIn</button>`:""}
+    ${p.notes?`<p class="sub">${esc(p.notes)}</p>`:""}
+  </div>`;
+}
+
+
+function ensurePersonEmails(person){
+  if(!Array.isArray(person.emails)){
+    const existing = person.email ? String(person.email).trim() : "";
+    person.emails = existing ? [existing] : [];
+  }
+  return person.emails;
+}
+
+function primaryEmail(person){
+  const emails = ensurePersonEmails(person);
+  return emails[0] || person.email || "";
+}
+
+function emailsDisplay(person){
+  const emails = ensurePersonEmails(person);
+  if(!emails.length) return "";
+  return emails.map((email, idx) => `
+    <div class="task" style="justify-content:space-between">
+      <div>
+        <b>${esc(email)}</b>
+        ${idx===0 ? `<div class="sub">Primary email</div>` : ""}
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn-ghost" onclick="event.stopPropagation(); openOutlookForPersonEmail('${person.id}', '${esc(email)}')">Email</button>
+        ${idx>0 ? `<button class="btn-ghost" onclick="event.stopPropagation(); makePrimaryEmail('${person.id}', ${idx})">Make primary</button>` : ""}
+        <button class="btn-danger" onclick="event.stopPropagation(); deletePersonEmail('${person.id}', ${idx})">Delete</button>
+      </div>
+    </div>
+  `).join("");
+}
+
+function addPersonEmail(personId){
+  const p = state.people.find(x => x.id === personId);
+  if(!p) return;
+  const email = prompt("Enter the email address to add:");
+  if(!email) return;
+  const clean = email.trim();
+  if(!clean) return;
+  const emails = ensurePersonEmails(p);
+  if(emails.some(e => same(e, clean))){
+    alert("That email is already saved for this person.");
+    return;
+  }
+  emails.push(clean);
+  if(!p.email) p.email = clean;
+  save();
+  openPerson(personId);
+}
+
+function deletePersonEmail(personId, index){
+  const p = state.people.find(x => x.id === personId);
+  if(!p) return;
+  const emails = ensurePersonEmails(p);
+  if(index < 0 || index >= emails.length) return;
+  if(!confirm("Delete this email?")) return;
+  emails.splice(index, 1);
+  p.email = emails[0] || "";
+  save();
+  openPerson(personId);
+}
+
+function makePrimaryEmail(personId, index){
+  const p = state.people.find(x => x.id === personId);
+  if(!p) return;
+  const emails = ensurePersonEmails(p);
+  if(index <= 0 || index >= emails.length) return;
+  const [email] = emails.splice(index, 1);
+  emails.unshift(email);
+  p.email = email;
+  save();
+  openPerson(personId);
+}
+
+
+
+
+function personForTask(task){
+  if(!task) return null;
+  return state.people.find(p =>
+    (task.person && same(p.name, task.person)) &&
+    (!task.company || same(p.company, task.company))
+  ) || state.people.find(p => task.person && same(p.name, task.person)) || null;
+}
+
+function runManualTask(taskId){
+  const t = state.tasks.find(x => x.id === taskId);
+  if(!t) return;
+
+  const taskType = String(t.type || "").toLowerCase();
+  const person = personForTask(t);
+
+  if(taskType.includes("linkedin")){
+    if(person) openLinkedInWithNote(person.id);
+    else alert("No matching person found for this LinkedIn task.");
+    return;
+  }
+
+  if(taskType.includes("email") || taskType.includes("follow") || taskType.includes("thank")){
+    if(!person){
+      alert("No matching person found for this email task. Make sure the task has the person's exact name.");
+      return;
+    }
+    chooseEmailForPerson(person.id, t.type || "Intro Email");
+    return;
+  }
+
+  // For non-email tasks, just open the matching person if there is one.
+  if(person) openPerson(person.id);
+  else alert("This task does not have an email action attached.");
+}
+
+function chooseEmailForPerson(personId, purpose="intro"){
+  const p = state.people.find(x=>x.id===personId);
+  if(!p) return;
+  const emails = ensurePersonEmails(p).filter(Boolean);
+
+  if(emails.length <= 1){
+    openOutlookForPersonEmail(personId, emails[0] || p.email || "", purpose);
+    return;
+  }
+
+  openModal("Choose email address", `
+    <div class="notice">This person has multiple email addresses. Choose which one you want to send to.</div>
+    <div class="fg">
+      <label>Email Address</label>
+      <select id="chosenPersonEmail">
+        ${emails.map(email => `<option value="${esc(email)}">${esc(email)}</option>`).join("")}
+      </select>
+    </div>
+  `, `
+    <button class="btn-primary" onclick="openOutlookForPersonEmail('${personId}', document.getElementById('chosenPersonEmail').value, '${esc(purpose)}')">Email with Outlook</button>
+  `);
+}
+
+function openOutlookForPersonEmail(personId, email, purpose="Intro Email"){
+  const p = state.people.find(x=>x.id===personId);
+  if(!p) return;
+
+  const type = String(purpose || "Intro Email").toLowerCase();
+  let templateName = "Intro Email";
+  if(type.includes("follow")) templateName = "Follow-Up";
+  if(type.includes("thank")) templateName = "Thank You";
+  if(type.includes("linkedin")) templateName = "LinkedIn Connect";
+
+  const templateBody = getEmailTemplateBody(templateName);
+  const subject = getEmailSubject(templateName);
+  const body = fillTemplate(templateBody, p);
+  launchMailto(email || primaryEmail(p), subject, body);
+}
+
+function normalizeAllPersonEmails(){
+  state.people.forEach(p => {
+    ensurePersonEmails(p);
+    p.email = primaryEmail(p);
+  });
+  save();
+}
+
+
+function openPerson(personId){
+  const p=state.people.find(x=>x.id===personId);
+  if(!p) return;
+  ensurePersonEmails(p);
+
+  openDrawer(p.name, `${esc(p.title||"")} ${p.company?"• "+esc(p.company):""}`, `
+    <dl class="defgrid">
+      <dt>Company</dt><dd>${esc(p.company||"")}</dd>
+      <dt>Title</dt><dd>${esc(p.title||"")}</dd>
+      <dt>Status</dt><dd>${peopleStatusSelect(p.id, p.status)}</dd>
+      <dt>Connection</dt><dd>${typeof connectionSelect === "function" ? connectionSelect(p.id, p.connection) : ""}</dd>
+      <dt>Primary Email</dt><dd>${primaryEmail(p)?`<a href="#" onclick="chooseEmailForPerson('${p.id}')">${esc(primaryEmail(p))}</a>`:""}</dd>
+      <dt>LinkedIn Page</dt><dd>${p.linkedin?`<a href="#" onclick="openLinkedInWithNote('${p.id}')">${esc(p.linkedin)}</a>`:""}</dd>
+      <dt>Phone</dt><dd>${esc(p.phone||"")}</dd>
+      <dt>Notes</dt><dd>${esc(p.notes||"")}</dd>
+    </dl>
+
+    <div class="card">
+      <h3>Emails</h3>
+      ${emailsDisplay(p) || `<div class="empty" style="padding:24px"><p>No emails saved yet.</p></div>`}
+      <button class="btn-primary" onclick="addPersonEmail('${p.id}')">Add Email</button>
+    </div>
+  `, `
+    <button class="btn-ghost" onclick="editPerson('${p.id}')">Edit person</button>
+    <button class="btn-ghost" onclick="chooseEmailForPerson('${p.id}')">Email with Outlook</button>
+    ${p.linkedin?`<button class="btn-ghost" onclick="openLinkedInWithNote('${p.id}')">Connect on LinkedIn</button>`:""}
+    <button class="btn-ghost" onclick="prefillTask('${esc(p.company)}','${esc(p.name)}')">Add task</button>
+    <button class="btn-ghost" onclick="prefillCadence('${esc(p.company)}','${esc(p.name)}')">Add cadence</button>
+  `);
+}
+
+
+function showSub(id,btn){
+  document.querySelectorAll(".subtab").forEach(x=>x.classList.remove("on"));
+  document.querySelectorAll(".subtabs button").forEach(x=>x.classList.remove("on"));
+  document.getElementById(id).classList.add("on");
+  btn.classList.add("on");
+}
+
+function openModal(title, body, foot=""){
+  document.getElementById("modalTitle").textContent=title;
+  document.getElementById("modalBody").innerHTML=body;
+  document.getElementById("modalFoot").innerHTML=foot;
+  document.getElementById("modalBg").classList.add("show");
+}
+function closeModal(){ document.getElementById("modalBg").classList.remove("show"); }
+
+function openNewForPage(){
+  if(currentPage==="companies") return companyForm();
+  if(currentPage==="people") return personForm();
+  if(currentPage==="tasks") return taskForm();
+  if(currentPage==="cadence") return cadenceForm();
+  if(currentPage==="templates") return templateForm();
+}
+
+function companyForm(){
+  openModal("New company", `
+    <div class="fg"><label>Company</label><input id="f_company"></div>
+    <div class="fg-2"><div class="fg"><label>Status</label><select id="f_status"><option>Researching Company</option><option>Sent Emails</option></select></div><div class="fg"><label>Priority</label><select id="f_priority"><option>High</option><option>Medium</option><option>Low</option></select></div></div>
+    <div class="fg-2"><div class="fg"><label>Industry</label><input id="f_industry"></div><div class="fg"><label>Location</label><input id="f_location"></div></div>
+    <div class="fg"><label>Company Website</label><input id="f_website"></div>
+    <div class="fg"><label>Notes</label><textarea id="f_notes"></textarea></div>
+  `, `<button class="btn-primary" onclick="saveCompanyForm()">Save company</button>`);
+}
+function saveCompanyForm(){
+  state.companies.push({id:id(),name:v("f_company"),status:v("f_status") || "Researching Company",priority:v("f_priority"),industry:v("f_industry"),location:v("f_location"),website:v("f_website"),notes:v("f_notes")});
+  save(); closeModal(); render();
+setTimeout(refreshStatusColors,0);
+}
+function personForm(prefillCo="", prefillName=""){
+  openModal("New person", `
+    <div class="fg"><label>Name</label><input id="f_name" value="${esc(prefillName)}"></div>
+    <div class="fg-2"><div class="fg"><label>Company</label><input id="f_pcompany" value="${esc(prefillCo)}"></div><div class="fg"><label>Status</label><select id="f_pstatus"><option>Have not sent email</option><option>Sent email</option><option>Heard back</option><option>Call scheduled</option><option>Have not heard back</option></select></div><div class="fg"><label>Connection</label><select id="f_pconnection"><option>Have not sent</option><option>Pending</option><option>Rejected</option><option>Accepted</option></select></div></div>
+    <div class="fg"><label>Title</label><input id="f_title"></div>
+    <div class="fg-2"><div class="fg"><label>Email</label><input id="f_email"></div><div class="fg"><label>LinkedIn Page</label><input id="f_linkedin" placeholder="Paste LinkedIn profile URL"></div></div>
+    <div class="fg"><label>Phone</label><input id="f_phone"></div>
+    <div class="fg"><label>Notes</label><textarea id="f_pnotes"></textarea></div>
+  `, `<button class="btn-primary" onclick="savePersonForm()">Save person</button>`);
+}
+function savePersonForm(){
+  state.people.push({id:id(),name:v("f_name"),company:v("f_pcompany"),status:v("f_pstatus"),connection:normalizeConnectionStatus(v("f_pconnection")),title:v("f_title"),email:v("f_email"),emails:v("f_email")?[v("f_email")]:[],linkedin:v("f_linkedin"),phone:v("f_phone"),notes:v("f_pnotes")});
+  save(); closeModal(); render();
+setTimeout(refreshStatusColors,0);
+}
+
+
+
+
+function taskStatusSelect(id, current){
+  const normalized = normalizeTaskStatus(current);
+  return `<select id="${id}">
+    <option ${normalized==="New Task" ? "selected" : ""}>New Task</option>
+    <option ${normalized==="Active" ? "selected" : ""}>Active</option>
+    <option ${normalized==="Queued" ? "selected" : ""}>Queued</option>
+    <option ${normalized==="Complete" ? "selected" : ""}>Complete</option>
+  </select>`;
+}
+
+
+
+
+
+function normalizeTaskStatus(status){
+  const s = String(status || "").trim().toLowerCase();
+  if(["complete","completed","done"].includes(s)) return "Complete";
+  if(["active","in progress","doing"].includes(s)) return "Active";
+  if(["queued","queue","not started"].includes(s)) return "Queued";
+  return "New Task";
+}
+
+function deleteTask(taskId){
+  if(!confirm("Delete this task?")) return;
+  state.tasks = state.tasks.filter(t => t.id !== taskId);
+  save();
+  render();
+setTimeout(refreshStatusColors,0);
+}
+
+function updateTaskStatus(taskId, newStatus){
+  const t = state.tasks.find(x => x.id === taskId);
+  if(!t) return;
+  t.status = normalizeTaskStatus(newStatus);
+  save();
+  render();
+setTimeout(refreshStatusColors,0);
+}
+
+
+function taskTypeOptions(){
+  return ["Send Email","Connect on LinkedIn","Follow Up","Apply Online","Prepare for Call","Send Thank You","Research Company"];
+}
+
+function toggleOtherTaskField(selectId, wrapId){
+  const select = document.getElementById(selectId);
+  const wrap = document.getElementById(wrapId);
+  if(!select || !wrap) return;
+  wrap.style.display = select.value === "Other" ? "block" : "none";
+}
+
+function selectedTaskType(selectId, otherId){
+  const selected = v(selectId);
+  if(selected === "Other"){
+    return v(otherId) || "Other";
+  }
+  return selected;
+}
+
+function setTaskTypeForEdit(taskType){
+  const common = taskTypeOptions();
+  const select = document.getElementById("e_ttype");
+  const other = document.getElementById("e_ttype_other");
+  const wrap = document.getElementById("e_ttype_other_wrap");
+  if(!select) return;
+  if(common.includes(taskType)){
+    select.value = taskType;
+    if(wrap) wrap.style.display = "none";
+    if(other) other.value = "";
+  } else {
+    select.value = "Other";
+    if(wrap) wrap.style.display = "block";
+    if(other) other.value = taskType || "";
+  }
+}
+
+function taskForm(prefillCo="", prefillPerson=""){
+  openModal("New task", `
+    <div class="fg"><label>Task</label><select id="f_ttype" onchange="toggleOtherTaskField('f_ttype','f_ttype_other_wrap')"><option>Send Email</option><option>Connect on LinkedIn</option><option>Follow Up</option><option>Apply Online</option><option>Prepare for Call</option><option>Send Thank You</option><option>Research Company</option><option>Other</option></select></div><div class="fg" id="f_ttype_other_wrap" style="display:none"><label>Other Task</label><input id="f_ttype_other" placeholder="Type the task here"></div>
+    <div class="fg-2"><div class="fg"><label>Company</label><input id="f_tcompany" value="${esc(prefillCo)}"></div><div class="fg"><label>Person</label><input id="f_tperson" value="${esc(prefillPerson)}"></div></div>
+    <div class="fg-2"><div class="fg"><label>Due</label><input type="date" id="f_due"></div><div class="fg"><label>Status</label><select id="f_tstatus"><option>New Task</option><option>Active</option><option>Queued</option><option>Complete</option></select></div></div>
+    <div class="fg"><label>Notes</label><textarea id="f_tnotes"></textarea></div>
+  `, `<button class="btn-primary" onclick="saveTaskForm()">Save task</button>`);
+}
+function saveTaskForm(){
+  state.tasks.push({id:id(),type:selectedTaskType("f_ttype","f_ttype_other"),company:v("f_tcompany"),person:v("f_tperson"),due:v("f_due"),status:normalizeTaskStatus(v("f_tstatus") || "New Task"),notes:v("f_tnotes")});
+  save(); closeModal(); render();
+setTimeout(refreshStatusColors,0);
+}
+function cadenceForm(prefillCo="", prefillPerson=""){
+  openModal("New cadence step", `
+    <div class="fg"><label>Type</label><select id="f_ctype"><option>LinkedIn Connect</option><option>Intro Email</option><option>Follow-Up Email</option><option>Thank You Email</option><option>Application Follow-Up</option><option>Custom</option></select></div>
+    <div class="fg-2"><div class="fg"><label>Company</label><input id="f_ccompany" value="${esc(prefillCo)}"></div><div class="fg"><label>Person</label><input id="f_cperson" value="${esc(prefillPerson)}"></div></div>
+    <div class="fg-2"><div class="fg"><label>Date</label><input type="date" id="f_cdate"></div><div class="fg"><label>Subject</label><input id="f_subject"></div></div>
+    <div class="fg"><label>Message</label><textarea id="f_message"></textarea></div>
+  `, `<button class="btn-primary" onclick="saveCadenceForm()">Save cadence</button>`);
+}
+function saveCadenceForm(){
+  state.cadence.push({id:id(),type:v("f_ctype"),company:v("f_ccompany"),person:v("f_cperson"),date:v("f_cdate"),subject:v("f_subject"),message:v("f_message")});
+  save(); closeModal(); render();
+setTimeout(refreshStatusColors,0);
+}
+function templateForm(){
+  openModal("New template", `<div class="fg"><label>Name</label><input id="f_tplname"></div><div class="fg"><label>Template</label><textarea id="f_tplbody"></textarea></div>`, `<button class="btn-primary" onclick="saveTemplateForm()">Save template</button>`);
+}
+function saveTemplateForm(){ state.templates.push({name:v("f_tplname"),body:v("f_tplbody")}); save(); closeModal(); render();
+setTimeout(refreshStatusColors,0); }
+function prefillPerson(co){closeDrawer();personForm(co)}
+function prefillTask(co,p=""){closeDrawer();taskForm(co,p)}
+function prefillCadence(co,p=""){closeDrawer();cadenceForm(co,p)}
+function previewCadence(cid){
+  const e=state.cadence.find(x=>x.id===cid);
+  if(!e)return;
+  openModal(e.subject||e.type, `<pre style="white-space:pre-wrap">${esc(e.message||"")}</pre>`, `
+    <button class="btn-primary" onclick="openOutlookForCadence('${cid}')">Open in Outlook</button>
+    <button class="btn-ghost" onclick="navigator.clipboard.writeText(\`${(e.message||"").replaceAll("`","\`")}\`)">Copy</button>
+  `);
+}
+function v(id){return document.getElementById(id)?.value.trim()||""}
+
+
+function editCompany(companyId){
+  const c = state.companies.find(x=>x.id===companyId);
+  if(!c) return;
+  openModal("Edit company", `
+    <div class="fg"><label>Company</label><input id="e_company" value="${esc(c.name)}"></div>
+    <div class="fg-2"><div class="fg"><label>Status</label><select id="e_status"><option>Researching Company</option><option>Sent Emails</option></select></div><div class="fg"><label>Priority</label><select id="e_priority"><option>High</option><option>Medium</option><option>Low</option></select></div></div>
+    <div class="fg-2"><div class="fg"><label>Industry</label><input id="e_industry" value="${esc(c.industry||"")}"></div><div class="fg"><label>Location</label><input id="e_location" value="${esc(c.location||"")}"></div></div>
+    <div class="fg"><label>Company Website</label><input id="e_website" value="${esc(c.website||"")}"></div>
+    <div class="fg"><label>Notes</label><textarea id="e_notes">${esc(c.notes||"")}</textarea></div>
+  `, `<button class="btn-primary" onclick="saveCompanyEdit('${companyId}')">Save changes</button>`);
+  document.getElementById("e_status").value = c.status || "Have not sent email Yet";
+  document.getElementById("e_priority").value = c.priority || "Medium";
+}
+function saveCompanyEdit(companyId){
+  const c = state.companies.find(x=>x.id===companyId);
+  if(!c) return;
+  const oldName = c.name;
+  c.name = v("e_company");
+  c.status = v("e_status");
+  c.priority = v("e_priority");
+  c.industry = v("e_industry");
+  c.location = v("e_location");
+  c.website = v("e_website");
+  c.notes = v("e_notes");
+  if(oldName && oldName !== c.name){
+    state.people.forEach(p=>{ if(same(p.company, oldName)) p.company = c.name; });
+    state.tasks.forEach(t=>{ if(same(t.company, oldName)) t.company = c.name; });
+    state.cadence.forEach(e=>{ if(same(e.company, oldName)) e.company = c.name; });
+  }
+  save(); closeModal(); closeDrawer(); render();
+setTimeout(refreshStatusColors,0);
+}
+function editPerson(personId){
+  const p = state.people.find(x=>x.id===personId);
+  if(!p) return;
+  openModal("Edit person", `
+    <div class="fg"><label>Name</label><input id="e_name" value="${esc(p.name||"")}"></div>
+    <div class="fg-2"><div class="fg"><label>Company</label><input id="e_pcompany" value="${esc(p.company||"")}"></div><div class="fg"><label>Status</label><select id="e_pstatus"><option>Have not sent email</option><option>Sent email</option><option>Heard back</option><option>Call scheduled</option><option>Have not heard back</option></select></div><div class="fg"><label>Connection</label><select id="e_pconnection"><option>Have not sent</option><option>Pending</option><option>Rejected</option><option>Accepted</option></select></div></div>
+    <div class="fg"><label>Title</label><input id="e_title" value="${esc(p.title||"")}"></div>
+    <div class="fg-2"><div class="fg"><label>Email</label><input id="e_email" value="${esc(p.email||"")}"></div><div class="fg"><label>LinkedIn Page</label><input id="e_linkedin" value="${esc(p.linkedin||"")}" placeholder="Paste LinkedIn profile URL"></div></div>
+    <div class="fg"><label>Phone</label><input id="e_phone" value="${esc(p.phone||"")}"></div>
+    <div class="fg"><label>Notes</label><textarea id="e_pnotes">${esc(p.notes||"")}</textarea></div>
+  `, `<button class="btn-primary" onclick="savePersonEdit('${personId}')">Save changes</button>`);
+  document.getElementById("e_pstatus").value = p.status || "Have not sent email";
+  document.getElementById("e_pconnection").value = normalizeConnectionStatus(p.connection);
+}
+function savePersonEdit(personId){
+  const p = state.people.find(x=>x.id===personId);
+  if(!p) return;
+  const oldName = p.name;
+  p.name = v("e_name");
+  p.company = v("e_pcompany");
+  p.status = v("e_pstatus");
+  p.connection=normalizeConnectionStatus(v("e_pconnection"));
+  p.title = v("e_title");
+  p.email = v("e_email");
+  const editedPrimaryEmail = v("e_email");
+  const existingEmails = ensurePersonEmails(p).filter(e => !same(e, editedPrimaryEmail));
+  p.emails = editedPrimaryEmail ? [editedPrimaryEmail, ...existingEmails] : existingEmails;
+  p.linkedin = v("e_linkedin");
+  p.phone = v("e_phone");
+  p.notes = v("e_pnotes");
+  if(oldName && oldName !== p.name){
+    state.tasks.forEach(t=>{ if(same(t.person, oldName)) t.person = p.name; });
+    state.cadence.forEach(e=>{ if(same(e.person, oldName)) e.person = p.name; });
+  }
+  save(); closeModal(); closeDrawer(); render();
+setTimeout(refreshStatusColors,0);
+}
+function editTask(taskId){
+  const t = state.tasks.find(x=>x.id===taskId);
+  if(!t) return;
+  openModal("Edit task", `
+    <div class="fg"><label>Task</label><select id="e_ttype" onchange="toggleOtherTaskField('e_ttype','e_ttype_other_wrap')"><option>Send Email</option><option>Connect on LinkedIn</option><option>Follow Up</option><option>Apply Online</option><option>Prepare for Call</option><option>Send Thank You</option><option>Research Company</option><option>Other</option></select></div><div class="fg" id="e_ttype_other_wrap" style="display:none"><label>Other Task</label><input id="e_ttype_other" placeholder="Type the task here"></div>
+    <div class="fg-2"><div class="fg"><label>Company</label><input id="e_tcompany" value="${esc(t.company||"")}"></div><div class="fg"><label>Person</label><input id="e_tperson" value="${esc(t.person||"")}"></div></div>
+    <div class="fg-2"><div class="fg"><label>Due</label><input type="date" id="e_due" value="${esc(t.due||"")}"></div><div class="fg"><label>Status</label><select id="e_tstatus"><option>New Task</option><option>Active</option><option>Queued</option><option>Complete</option></select></div></div>
+    <div class="fg"><label>Notes</label><textarea id="e_tnotes">${esc(t.notes||"")}</textarea></div>
+  `, `<button class="btn-primary" onclick="saveTaskEdit('${taskId}')">Save changes</button>`);
+  setTaskTypeForEdit(t.type || "Send Email");
+  document.getElementById("e_tstatus").value = normalizeTaskStatus(t.status);
+}
+function saveTaskEdit(taskId){
+  const t = state.tasks.find(x=>x.id===taskId);
+  if(!t) return;
+  t.type = selectedTaskType("e_ttype","e_ttype_other");
+  t.company = v("e_tcompany");
+  t.person = v("e_tperson");
+  t.due = v("e_due");
+  t.status = normalizeTaskStatus(v("e_tstatus"));
+  t.notes = v("e_tnotes");
+  save(); closeModal(); render();
+setTimeout(refreshStatusColors,0);
+}
+function editCadence(cadenceId){
+  const e = state.cadence.find(x=>x.id===cadenceId);
+  if(!e) return;
+  openModal("Edit cadence step", `
+    <div class="fg"><label>Type</label><select id="e_ctype"><option>LinkedIn Connect</option><option>Intro Email</option><option>Follow-Up Email</option><option>Thank You Email</option><option>Application Follow-Up</option><option>Custom</option></select></div>
+    <div class="fg-2"><div class="fg"><label>Company</label><input id="e_ccompany" value="${esc(e.company||"")}"></div><div class="fg"><label>Person</label><input id="e_cperson" value="${esc(e.person||"")}"></div></div>
+    <div class="fg-2"><div class="fg"><label>Date</label><input type="date" id="e_cdate" value="${esc(e.date||"")}"></div><div class="fg"><label>Subject</label><input id="e_subject" value="${esc(e.subject||"")}"></div></div>
+    <div class="fg"><label>Message</label><textarea id="e_message">${esc(e.message||"")}</textarea></div>
+  `, `<button class="btn-primary" onclick="saveCadenceEdit('${cadenceId}')">Save changes</button>`);
+  document.getElementById("e_ctype").value = e.type || "Custom";
+}
+function saveCadenceEdit(cadenceId){
+  const e = state.cadence.find(x=>x.id===cadenceId);
+  if(!e) return;
+  e.type = v("e_ctype");
+  e.company = v("e_ccompany");
+  e.person = v("e_cperson");
+  e.date = v("e_cdate");
+  e.subject = v("e_subject");
+  e.message = v("e_message");
+  save(); closeModal(); render();
+setTimeout(refreshStatusColors,0);
+}
+function editTemplate(index){
+  const t = state.templates[index];
+  if(!t) return;
+  openModal("Edit template", `
+    <div class="fg"><label>Name</label><input id="e_tplname" value="${esc(t.name||"")}"></div>
+    <div class="fg"><label>Template</label><textarea id="e_tplbody">${esc(t.body||"")}</textarea></div>
+  `, `<button class="btn-primary" onclick="saveTemplateEdit(${index})">Save changes</button>`);
+}
+function saveTemplateEdit(index){
+  if(!state.templates[index]) return;
+  state.templates[index].name = v("e_tplname");
+  state.templates[index].body = v("e_tplbody");
+  save(); closeModal(); render();
+setTimeout(refreshStatusColors,0);
+}
+
+
+function resetData(){
+  if(!confirm("Reset all companies, people, tasks, and cadence?")) return;
+  if(!confirm("Final confirmation. This cannot be undone unless you exported a backup.")) return;
+  state.companies=[]; state.people=[]; state.tasks=[]; state.cadence=[];
+  save(); render();
+setTimeout(refreshStatusColors,0);
+}
+
+function openImportModal(){
+  importedRows=[]; importedHeaders=[]; headerIndex=0;
+  openModal("Import Excel or CSV", `
+    <div class="notice"><b>Fixed import:</b> upload your file first. Then map the exact columns for Contact 1 and Contact 2, including each person's name, email, title, LinkedIn page, and status.</div>
+    <div class="fg"><label>Excel or CSV File</label><input type="file" id="imp_file" accept=".xlsx,.xls,.csv"></div>
+    <button class="btn-primary" onclick="readImportFile()">Read file and map columns</button>
+    <div id="mappingArea"></div>
+  `);
+}
+function readImportFile(){
+  const file=document.getElementById("imp_file").files[0];
+  if(!file){alert("Choose a file first.");return;}
+  if(/\.(xlsx|xls)$/i.test(file.name)){
+    const reader=new FileReader();
+    reader.onload=e=>{
+      const wb=XLSX.read(new Uint8Array(e.target.result),{type:"array"});
+      let rows=[];
+      wb.SheetNames.forEach(s=>{
+        const r=XLSX.utils.sheet_to_json(wb.Sheets[s],{header:1,defval:""});
+        if(r.length) rows=rows.concat(r);
+      });
+      setupMapping(rows);
+    };
+    reader.readAsArrayBuffer(file);
+  } else {
+    const reader=new FileReader();
+    reader.onload=e=>setupMapping(parseCSV(e.target.result));
+    reader.readAsText(file);
+  }
+}
+function parseCSV(text){
+  const rows=[];let row=[],cell="",q=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i], nx=text[i+1];
+    if(ch==='"'&&q&&nx==='"'){cell+='"';i++}
+    else if(ch==='"')q=!q;
+    else if(ch===","&&!q){row.push(cell);cell=""}
+    else if((ch==="\n"||ch==="\r")&&!q){if(cell||row.length){row.push(cell);rows.push(row);row=[];cell=""}}
+    else cell+=ch;
+  }
+  if(cell||row.length){row.push(cell);rows.push(row)}
+  return rows.filter(r=>r.some(c=>String(c||"").trim()));
+}
+function setupMapping(rows){
+  importedRows=rows;
+  headerIndex=detectHeaderRow(rows);
+  importedHeaders=rows[headerIndex].map((h,i)=>String(h||`Column ${i+1}`).trim()||`Column ${i+1}`);
+  const area=document.getElementById("mappingArea");
+  area.innerHTML=`
+    <div class="warn">Review the dropdowns below. This avoids the issue where contacts import incorrectly. Make sure Contact 1 and Contact 2 fields are mapped.</div>
+    <div class="map-grid">
+      ${mapSelect("Company","company")}
+      ${mapSelect("Company Website","website")}
+      ${mapSelect("Company Status","companyStatus")}
+      ${mapSelect("Industry","industry")}
+      ${mapSelect("Location","location")}
+      ${mapSelect("Company Notes","companyNotes")}
+      ${mapSelect("Contact 1 Name","c1Name")}
+      ${mapSelect("Contact 1 Email","c1Email")}
+      ${mapSelect("Contact 1 Title","c1Title")}
+      ${mapSelect("Contact 1 LinkedIn Page","c1Linkedin")}
+      ${mapSelect("Contact 1 Status","c1Status")}
+      ${mapSelect("Contact 1 Connection","c1Connection")}
+      ${mapSelect("Contact 2 Name","c2Name")}
+      ${mapSelect("Contact 2 Email","c2Email")}
+      ${mapSelect("Contact 2 Title","c2Title")}
+      ${mapSelect("Contact 2 LinkedIn Page","c2Linkedin")}
+      ${mapSelect("Contact 2 Status","c2Status")}
+      ${mapSelect("Contact 2 Connection","c2Connection")}
+    </div>
+    <table class="preview-table">
+      <thead><tr>${importedHeaders.slice(0,12).map(h=>`<th>${esc(h)}</th>`).join("")}</tr></thead>
+      <tbody>${rows.slice(headerIndex+1, headerIndex+4).map(r=>`<tr>${r.slice(0,12).map(c=>`<td>${esc(c)}</td>`).join("")}</tr>`).join("")}</tbody>
+    </table>
+  `;
+  autoMapAll();
+  document.getElementById("modalFoot").innerHTML=`<button class="btn-primary" onclick="finishMappedImport()">Import mapped data</button>`;
+}
+function mapSelect(label,key){
+  return `<label>${label}</label><select id="map_${key}"><option value="">-- Ignore --</option>${importedHeaders.map((h,i)=>`<option value="${i}">${esc(h)}</option>`).join("")}</select>`;
+}
+function normalize(s){return String(s||"").toLowerCase().replace(/[\s_\-\/().:#]+/g,"")}
+function autoMapAll(){
+  const maps={
+    company:["company","companyname","firm","firmname","organization","employer","account"],
+    website:["companywebsite","website","site","url","companyurl"],
+    companyStatus:["companystatus","outreachstatus","status","stage"],
+    industry:["industry","sector","vertical"],
+    location:["location","city","state","market","headquarters","office"],
+    companyNotes:["companynotes","notes","comments"],
+    c1Name:["contact1name","contactname1","name1","person1name","personname1","contactone","primarycontact","primarycontactname"],
+    c1Email:["contact1email","contactemail1","email1","person1email","personemail1","primaryemail","primarycontactemail"],
+    c1Title:["contact1title","contacttitle1","title1","jobtitle1","person1title","primarytitle"],
+    c1Linkedin:["contact1linkedin","contactlinkedin1","linkedin1","linkedinurl1","person1linkedin","primarylinkedin"],
+    c1Status:["contact1status","contactstatus1","status1","person1status"],
+    c1Connection:["contact1connection","connection1","person1connection","linkedinstatus1","linkedinconnection1"],
+    c2Name:["contact2name","contactname2","name2","person2name","personname2","contacttwo","secondarycontact","secondarycontactname"],
+    c2Email:["contact2email","contactemail2","email2","person2email","personemail2","secondaryemail","secondarycontactemail"],
+    c2Title:["contact2title","contacttitle2","title2","jobtitle2","person2title","secondarytitle"],
+    c2Linkedin:["contact2linkedin","contactlinkedin2","linkedin2","linkedinurl2","person2linkedin","secondarylinkedin"],
+    c2Status:["contact2status","contactstatus2","status2","person2status"],
+    c2Connection:["contact2connection","connection2","person2connection","linkedinstatus2","linkedinconnection2"]
+  };
+  Object.entries(maps).forEach(([key,aliases])=>{
+    const idx=importedHeaders.findIndex(h=>aliases.includes(normalize(h)));
+    if(idx>=0) document.getElementById("map_"+key).value=idx;
+  });
+}
+function detectHeaderRow(rows){
+  let best=0, bestScore=-1;
+  const words=["company","firm","website","contact","person","name","title","email","linkedin","phone","status"];
+  rows.slice(0,20).forEach((r,i)=>{
+    let score=0;
+    r.forEach(c=>{
+      const s=String(c||"").toLowerCase(), n=normalize(s);
+      words.forEach(w=>{if(s.includes(w)||n.includes(w))score++});
+      if(s.includes("@")) score-=4;
+      if(s.startsWith("http")) score-=2;
+    });
+    if(score>bestScore){best=i;bestScore=score}
+  });
+  return best;
+}
+function getMapped(row,key){
+  const el=document.getElementById("map_"+key);
+  if(!el||el.value==="") return "";
+  return String(row[Number(el.value)]||"").trim();
+}
+function finishMappedImport(){
+  let companiesAdded=0, companiesUpdated=0, contactsAdded=0, contactsSkipped=0;
+  importedRows.slice(headerIndex+1).forEach(row=>{
+    if(!row.some(c=>String(c||"").trim())) return;
+    const company=getMapped(row,"company");
+    const website=getMapped(row,"website");
+    const industry=getMapped(row,"industry");
+    const location=getMapped(row,"location");
+    const status=getMapped(row,"companyStatus") || "Researching Company";
+    const notes=getMapped(row,"companyNotes");
+    if(company){
+      let co=state.companies.find(c=>same(c.name,company));
+      if(co){
+        co.website=website||co.website; co.industry=industry||co.industry; co.location=location||co.location; co.status=status||co.status; co.notes=notes||co.notes;
+        companiesUpdated++;
+      } else {
+        state.companies.push({id:id(),name:company,website,industry,location,status,priority:"Medium",notes});
+        companiesAdded++;
+      }
+    }
+    const contacts=[
+      {name:getMapped(row,"c1Name"),email:getMapped(row,"c1Email"),title:getMapped(row,"c1Title"),linkedin:getMapped(row,"c1Linkedin"),status:getMapped(row,"c1Status")||"Have not sent email",connection:normalizeConnectionStatus(getMapped(row,"c1Connection"))},
+      {name:getMapped(row,"c2Name"),email:getMapped(row,"c2Email"),title:getMapped(row,"c2Title"),linkedin:getMapped(row,"c2Linkedin"),status:getMapped(row,"c2Status")||"Have not sent email",connection:normalizeConnectionStatus(getMapped(row,"c2Connection"))}
+    ];
+    contacts.forEach(ct=>{
+      if(!ct.name && ct.email) ct.name=ct.email.split("@")[0].replace(/[._-]/g," ");
+      if(ct.linkedin && !/^https?:\/\//i.test(ct.linkedin) && ct.linkedin.toLowerCase().includes("linkedin")) ct.linkedin="https://"+ct.linkedin;
+      const has=ct.name||ct.email||ct.title||ct.linkedin;
+      if(!has) return;
+      const dup=state.people.some(p=>(ct.email&&same(p.email,ct.email))||(ct.linkedin&&same(p.linkedin,ct.linkedin))||(ct.name&&same(p.name,ct.name)&&same(p.company,company)));
+      if(dup){contactsSkipped++;return;}
+      state.people.push({id:id(),name:ct.name||ct.email||ct.linkedin||"Unnamed Contact",company,title:ct.title,email:ct.email,emails:ct.email?[ct.email]:[],linkedin:ct.linkedin,status:ct.status,connection:normalizeConnectionStatus(ct.connection),phone:"",notes:""});
+      contactsAdded++;
+    });
+  });
+  save(); closeModal(); render();
+setTimeout(refreshStatusColors,0);
+  alert(`Import complete.\nCompanies added: ${companiesAdded}\nCompanies updated: ${companiesUpdated}\nContacts added: ${contactsAdded}\nContacts skipped as duplicates: ${contactsSkipped}`);
+}
+
+
+
+
+
+function linkedInConnectNote(person){
+  const template = state.templates.find(t => 
+    String(t.name || "").toLowerCase().includes("linkedin") ||
+    String(t.name || "").toLowerCase().includes("connect")
+  );
+
+  const body = template ? template.body : 
+`Hi {{FirstName}}, I came across your profile and saw your experience at {{Company}}. I am interested in learning more about the industry and would be grateful to connect.`;
+
+  return fillTemplate(body, person);
+}
+
+function openLinkedInWithNote(personId){
+  const p = state.people.find(x => x.id === personId);
+  if(!p || !p.linkedin){
+    alert("No LinkedIn page saved for this person.");
+    return;
+  }
+
+  if(normalizeConnectionStatus(p.connection)==="Not sent"){ p.connection = "Pending"; save(); }
+
+  const note = linkedInConnectNote(p);
+
+  navigator.clipboard.writeText(note).then(() => {
+    openModal("LinkedIn note copied", `
+      <div class="notice">
+        The LinkedIn connection note was copied to your clipboard.
+        LinkedIn will open now. Click <b>Connect</b>, then <b>Add a note</b>, then paste.
+      </div>
+      <dl class="defgrid">
+        <dt>Person</dt><dd>${esc(p.name || "")}</dd>
+        <dt>Company</dt><dd>${esc(p.company || "")}</dd>
+      </dl>
+      <div class="fg"><label>Copied note</label><textarea>${esc(note)}</textarea></div>
+    `, `
+      <a class="btn-primary" href="${esc(protocol(p.linkedin))}" target="_blank">Open LinkedIn</a>
+      <button class="btn-ghost" onclick="navigator.clipboard.writeText(document.querySelector('#modalBody textarea').value)">Copy again</button>
+    `);
+
+    window.open(protocol(p.linkedin), "_blank");
+  }).catch(() => {
+    openModal("Copy LinkedIn note", `
+      <div class="warn">
+        Your browser blocked automatic copy. Manually copy the note below, then open LinkedIn.
+      </div>
+      <div class="fg"><label>LinkedIn note</label><textarea>${esc(note)}</textarea></div>
+    `, `
+      <a class="btn-primary" href="${esc(protocol(p.linkedin))}" target="_blank">Open LinkedIn</a>
+    `);
+  });
+}
+
+
+
+function firstName(fullName){
+ return String(fullName || "").trim().split(/\s+/)[0] || "";
+}
+function applyPersonTemplateVars(text, person){
+ const first = firstName(person && person.name);
+ return String(text || "")
+   .replaceAll("{{FirstName}}", first)
+   .replaceAll("{{Name}}", first)
+   .replaceAll("{{Company}}", (person && person.company) || "")
+   .replaceAll("{{Title}}", (person && person.title) || "")
+   .replaceAll("{{Your Name}}", "");
+}
+function migrateTemplatesToFirstName(){
+ state.templates = (state.templates || []).map(t => ({
+   ...t,
+   body: String(t.body || "")
+     .replaceAll("Hi {{FirstName}},", "Hi {{FirstName}},")
+     .replaceAll("Hi {{FirstName}}", "Hi {{FirstName}}")
+ }));
+ save();
+}
+function buildEmail(person){
+ const tpl=(state.templates.find(t=>t.name==="Intro Email")||state.templates[0]).body;
+ return applyPersonTemplateVars(tpl, person);
+}
+function openOutlookForCadence(cid){
+ const e=state.cadence.find(x=>x.id===cid); if(!e)return;
+ const person=state.people.find(p=>same(p.name,e.person)&&same(p.company,e.company));
+ const body=applyPersonTemplateVars(e.message||"", person || {name:e.person, company:e.company});
+ const url="mailto:"+encodeURIComponent((person&&person.email)||"")+"?subject="+encodeURIComponent(e.subject||"")+"&body="+encodeURIComponent(body);
+ const a=document.createElement('a');a.href=url;document.body.appendChild(a);a.click();a.remove();
+}
+migrateTemplatesToFirstName();
+
+function getFirstName(fullName){
+  return String(fullName || "").trim().split(/\s+/)[0] || "";
+}
+
+function fillTemplate(template, person){
+  const firstName = getFirstName(person?.name || "");
+  const fullName = person?.name || "";
+  const company = person?.company || "";
+  const title = person?.title || "";
+
+  let output = String(template || "")
+    .replaceAll("{{FirstName}}", firstName)
+    .replaceAll("{{firstName}}", firstName)
+    .replaceAll("{{first name}}", firstName)
+    .replaceAll("{{First Name}}", firstName)
+    .replaceAll("{{FIRST NAME}}", firstName)
+    .replaceAll("{{Name}}", firstName)
+    .replaceAll("{{name}}", firstName)
+    .replaceAll("{{FullName}}", fullName)
+    .replaceAll("{{Full Name}}", fullName)
+    .replaceAll("{{Company}}", company)
+    .replaceAll("{{company}}", company)
+    .replaceAll("{{Title}}", title)
+    .replaceAll("{{title}}", title)
+    .replaceAll("{{Your Name}}", "");
+
+  output = output
+    .replace(/^Hi\s+\{\{\s*first\s*name\s*\}\}/i, "Hi " + firstName)
+    .replace(/^Hi\s+\{\{\s*firstname\s*\}\}/i, "Hi " + firstName)
+    .replace(/^Hi\s+\{\{\s*name\s*\}\}/i, "Hi " + firstName);
+
+  return output;
+}
+
+function getEmailTemplateBody(templateName){
+  const target = String(templateName || "Intro Email").toLowerCase();
+  const template = state.templates.find(t => String(t.name || "").toLowerCase() === target)
+    || state.templates.find(t => String(t.name || "").toLowerCase().includes("intro"))
+    || state.templates[0];
+  return template ? template.body : "Hi {{FirstName}},\n\nI hope you're doing well.";
+}
+
+function getEmailSubject(templateName){
+  const name = String(templateName || "Intro Email").toLowerCase();
+  if(name.includes("follow")) return "Following up";
+  if(name.includes("thank")) return "Thank you";
+  if(name.includes("linkedin")) return "Quick introduction";
+  if(name.includes("application")) return "Interest in opportunities";
+  return "Quick introduction";
+}
+
+function launchMailto(to="", subject="", body=""){
+  const href = "mailto:" + encodeURIComponent(to || "") +
+    "?subject=" + encodeURIComponent(subject || "") +
+    "&body=" + encodeURIComponent(body || "");
+  const a = document.createElement("a");
+  a.href = href;
+  a.style.display = "none";
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => a.remove(), 1000);
+}
+
+
+function openOutlookForPerson(personId){
+  chooseEmailForPerson(personId, "Intro Email");
+}
+
+function openOutlookForCadence(cadenceId){
+  const e = state.cadence.find(x=>x.id===cadenceId);
+  if(!e) return;
+  const person = state.people.find(p=>same(p.name,e.person) && same(p.company,e.company)) || {name:e.person, company:e.company, title:"", email:""};
+  const body = fillTemplate(e.message || getEmailTemplateBody(e.type), person);
+  const subject = e.subject || getEmailSubject(e.type);
+  launchMailto(person.email || "", subject, body);
+}
+
+
+/* ---------------- Cadence Builder + People Multi-Select Assignment ---------------- */
+
+let selectedPeopleForCadence = new Set();
+
+function ensureCadenceTemplates(){
+  if(!state.cadenceTemplates) state.cadenceTemplates = [];
+  state.people.forEach(p => {
+    if(!("cadenceId" in p)) p.cadenceId = "";
+    if(!("cadenceStartDate" in p)) p.cadenceStartDate = "";
+  });
+  save();
+}
+
+function cadenceById(id){
+  return (state.cadenceTemplates || []).find(c => c.id === id);
+}
+
+function cadenceNameForPerson(p){
+  const c = cadenceById(p.cadenceId);
+  return c ? c.name : "";
+}
+
+function daysFromToday(dateStr){
+  if(!dateStr) return 0;
+  const start = new Date(dateStr + "T00:00:00");
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.floor((today - start) / (1000 * 60 * 60 * 24));
+}
+
+function cadenceCurrentStep(person){
+  const cadence = cadenceById(person.cadenceId);
+  if(!cadence || !cadence.steps || !cadence.steps.length) return null;
+
+  const elapsed = daysFromToday(person.cadenceStartDate || today());
+  const sorted = [...cadence.steps].sort((a,b) => Number(a.day || 0) - Number(b.day || 0));
+
+  let current = sorted[0];
+  for(const step of sorted){
+    if(Number(step.day || 0) <= elapsed) current = step;
+  }
+  return current;
+}
+
+function cadenceNextDueText(person){
+  const cadence = cadenceById(person.cadenceId);
+  if(!cadence || !cadence.steps || !cadence.steps.length) return "";
+  const step = cadenceCurrentStep(person);
+  if(!step) return "";
+
+  const start = new Date((person.cadenceStartDate || today()) + "T00:00:00");
+  const due = new Date(start);
+  due.setDate(start.getDate() + Number(step.day || 0));
+  return `${step.action || "Step"} • Due ${due.toISOString().slice(0,10)}`;
+}
+
+
+function togglePersonSelection(personId, checked){
+  if(checked) selectedPeopleForCadence.add(personId);
+  else selectedPeopleForCadence.delete(personId);
+}
+
+function clearSelectedPeople(){
+  selectedPeopleForCadence.clear();
+  renderPeople();
+}
+
+
+function assignSelectedPeopleToCadence(){
+  const cadenceId = document.getElementById("bulkCadenceSelect").value;
+  const startDate = document.getElementById("bulkCadenceStartDate").value || today();
+
+  if(!cadenceId) return alert("Choose a cadence first.");
+  if(!selectedPeopleForCadence.size) return alert("Select at least one person first.");
+
+  state.people.forEach(p => {
+    if(selectedPeopleForCadence.has(p.id)){
+      p.cadenceId = cadenceId;
+      p.cadenceStartDate = startDate;
+      p.completedCadenceSteps = [];
+      p.cadenceTaskStatuses = [];
+    }
+  });
+
+  selectedPeopleForCadence.clear();
+  save();
+  render();
+setTimeout(refreshStatusColors,0);
+  alert("Selected people were moved to the cadence. Their cadence steps now appear under Tasks with due dates.");
+}
+
+
+function renderCadence(){
+  ensureCadenceTemplates();
+
+  const q=document.getElementById("search").value.toLowerCase();
+  const cadences = (state.cadenceTemplates || []).filter(c => [c.name, c.description, JSON.stringify(c.steps||[])].join(" ").toLowerCase().includes(q));
+  const assigned = state.people.filter(p => p.cadenceId);
+
+  document.getElementById("count").textContent = `${cadences.length} cadences`;
+
+  document.getElementById("content").innerHTML = `
+    <div class="card">
+      <h3>Create a Cadence</h3>
+      <div class="sub">A cadence is a sequence of outreach steps. Example: Day 0 intro email, Day 3 LinkedIn connect, Day 7 follow-up.</div>
+      <button class="btn-primary" onclick="openCadenceBuilder()">Create Cadence</button>
+    </div>
+
+    ${cadences.length ? `
+      <div class="grid">
+        ${cadences.map(c => `
+          <div class="card">
+            <h3>${esc(c.name)}</h3>
+            <p class="sub">${esc(c.description || "")}</p>
+            <div style="margin-top:12px">
+              ${(c.steps || []).sort((a,b)=>Number(a.day||0)-Number(b.day||0)).map((s, idx) => `
+                <div class="task">
+                  <div>
+                    <b>Day ${esc(s.day || 0)}: ${esc(s.action || "Step " + (idx+1))}</b>
+                    <div class="sub">${esc(s.template || "")}</div>
+                  </div>
+                </div>
+              `).join("")}
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+              <button class="btn-ghost" onclick="editCadenceTemplate('${c.id}')">Edit</button>
+              <button class="btn-danger" onclick="deleteCadenceTemplate('${c.id}')">Delete</button>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    ` : `<div class="empty"><h3>No cadences yet</h3><p>Create your first sequence of outreach steps.</p></div>`}
+
+    <div class="card">
+      <h3>People Currently in Cadences</h3>
+      ${assigned.length ? `
+        <div class="list">
+          <div class="row people head"><div>Person</div><div>Company</div><div>Status</div><div>Email</div><div>LinkedIn</div><div>Current Step</div><div>Actions</div></div>
+          ${assigned.map(p => `
+            <div class="row people" onclick="openPerson('${p.id}')">
+              <div><div class="nm">${esc(p.name)}</div><div class="sub">${esc(cadenceNameForPerson(p))}</div></div>
+              <div>${esc(p.company || "")}</div>
+              <div>${peopleStatusSelect(p.id, p.status)}</div>
+              <div class="truncate">${p.email ? `<a href="#" onclick="event.stopPropagation(); chooseEmailForPerson('${p.id}')">${esc(p.email)}</a>` : ""}</div>
+              <div class="truncate">${p.linkedin ? `<a href="#" onclick="event.stopPropagation(); openLinkedInWithNote('${p.id}')">LinkedIn</a>` : ""}</div>
+              <div>${esc(cadenceNextDueText(p))}</div>
+              <div><button class="btn-ghost" onclick="event.stopPropagation(); removePersonFromCadence('${p.id}')">Remove</button></div>
+            </div>
+          `).join("")}
+        </div>
+      ` : `<div class="empty"><p>No people assigned to cadences yet.</p></div>`}
+    </div>
+  `;
+}
+
+function openCadenceBuilder(existingId=""){
+  const existing = existingId ? cadenceById(existingId) : null;
+  const steps = existing?.steps?.length ? existing.steps : [
+    {day:0, action:"Intro Email", template:"Intro Email"},
+    {day:3, action:"LinkedIn Connect", template:"LinkedIn Connect"},
+    {day:7, action:"Follow-Up Email", template:"Follow-Up"},
+    {day:14, action:"Thank You Email", template:"Thank You"}
+  ];
+
+  openModal(existing ? "Edit cadence" : "Create cadence", `
+    <div class="fg"><label>Cadence Name</label><input id="cadenceNameInput" value="${esc(existing?.name || "")}" placeholder="Example: Standard Networking Cadence"></div>
+    <div class="fg"><label>Description</label><textarea id="cadenceDescriptionInput" placeholder="What this cadence is used for">${esc(existing?.description || "")}</textarea></div>
+
+    <h3 style="margin:16px 0 10px">Steps</h3>
+    <div id="cadenceStepsEditor">
+      ${steps.map((s, idx) => cadenceStepEditorRow(s, idx)).join("")}
+    </div>
+
+    <button class="btn-ghost" onclick="addCadenceStepRow()">Add Step</button>
+  `, `
+    <button class="btn-primary" onclick="saveCadenceTemplate('${existingId}')">Save Cadence</button>
+  `);
+}
+
+function cadenceStepEditorRow(step, idx){
+  return `
+    <div class="card cadence-step-row" data-step-index="${idx}">
+      <div class="fg-2">
+        <div class="fg">
+          <label>Day Number</label>
+          <input class="cadence-step-day" type="number" min="0" value="${esc(step.day ?? 0)}">
+        </div>
+        <div class="fg">
+          <label>Action</label>
+          <select class="cadence-step-action">
+            ${["Intro Email","LinkedIn Connect","Follow-Up Email","Thank You Email","Application Follow-Up","Custom"].map(a => `<option ${a===(step.action||"") ? "selected" : ""}>${a}</option>`).join("")}
+          </select>
+        </div>
+      </div>
+      <div class="fg">
+        <label>Template</label>
+        <select class="cadence-step-template">
+          ${state.templates.map(t => `<option ${t.name===(step.template||"") ? "selected" : ""}>${esc(t.name)}</option>`).join("")}
+        </select>
+      </div>
+      <button class="btn-danger" onclick="this.closest('.cadence-step-row').remove()">Delete Step</button>
+    </div>
+  `;
+}
+
+function addCadenceStepRow(){
+  const container = document.getElementById("cadenceStepsEditor");
+  const idx = container.querySelectorAll(".cadence-step-row").length;
+  container.insertAdjacentHTML("beforeend", cadenceStepEditorRow({day:0, action:"Custom", template:state.templates[0]?.name || ""}, idx));
+}
+
+function saveCadenceTemplate(existingId=""){
+  const name = document.getElementById("cadenceNameInput").value.trim();
+  const description = document.getElementById("cadenceDescriptionInput").value.trim();
+
+  if(!name) return alert("Give the cadence a name.");
+
+  const steps = [...document.querySelectorAll(".cadence-step-row")].map(row => ({
+    day: Number(row.querySelector(".cadence-step-day").value || 0),
+    action: row.querySelector(".cadence-step-action").value,
+    template: row.querySelector(".cadence-step-template").value
+  })).sort((a,b) => Number(a.day || 0) - Number(b.day || 0));
+
+  if(!steps.length) return alert("Add at least one step.");
+
+  if(existingId){
+    const c = cadenceById(existingId);
+    if(c){
+      c.name = name;
+      c.description = description;
+      c.steps = steps;
+    }
+  } else {
+    state.cadenceTemplates.push({
+      id: id(),
+      name,
+      description,
+      steps
+    });
+  }
+
+  save();
+  closeModal();
+  render();
+setTimeout(refreshStatusColors,0);
+}
+
+function editCadenceTemplate(id){
+  openCadenceBuilder(id);
+}
+
+function deleteCadenceTemplate(id){
+  const c = cadenceById(id);
+  if(!c) return;
+
+  if(!confirm(`Delete the cadence "${c.name}"? People assigned to it will be removed from this cadence.`)) return;
+
+  state.cadenceTemplates = state.cadenceTemplates.filter(x => x.id !== id);
+  state.people.forEach(p => {
+    if(p.cadenceId === id){
+      p.cadenceId = "";
+      p.cadenceStartDate = "";
+    }
+  });
+
+  save();
+  render();
+setTimeout(refreshStatusColors,0);
+}
+
+function removePersonFromCadence(personId){
+  const p = state.people.find(x => x.id === personId);
+  if(!p) return;
+  p.cadenceId = "";
+  p.cadenceStartDate = "";
+  save();
+  render();
+setTimeout(refreshStatusColors,0);
+}
+
+// Override the new-button behavior for the Cadence tab.
+const oldOpenNewForPage = openNewForPage;
+openNewForPage = function(){
+  if(currentPage === "cadence") return openCadenceBuilder();
+  return oldOpenNewForPage();
+};
+
+ensureCadenceTemplates();
+
+
+/* Company multi-select */
+let selectedCompanies=new Set();
+function toggleCompanySelection(id,checked){if(checked)selectedCompanies.add(id);else selectedCompanies.delete(id);}
+function clearSelectedCompanies(){selectedCompanies.clear();renderCompanies();}
+function bulkUpdateCompanyStatus(){
+ const sel=document.getElementById('bulkCompanyStatus');
+ if(!sel)return;
+ const status=sel.value;
+ if(!status)return alert('Choose a status.');
+ state.companies.forEach(c=>{if(selectedCompanies.has(c.id))c.status=status;});
+ selectedCompanies.clear();save();render();
+setTimeout(refreshStatusColors,0);
+}
+
+
+function normalizeCompanyStatus(status){
+  const s = String(status || "").trim();
+  if(["Sent Emails","Sent email","Sent Email","Reached Out","Follow-Up Needed","Call Scheduled","Applied","Interviewing","Offer","Rejected"].includes(s)) return "Sent Emails";
+  return "Researching Company";
+}
+
+function normalizePeopleStatus(status){
+  const s = String(status || "").trim();
+  const low = s.toLowerCase();
+  if(["sent email","sent emails","emailed","reached out","contacted"].includes(low)) return "Sent email";
+  if(["heard back","responded"].includes(low)) return "Heard back";
+  if(["call scheduled","meeting scheduled","scheduled call"].includes(low)) return "Call scheduled";
+  if(["have not heard back","no response","no reply"].includes(low)) return "Have not heard back";
+  return "Have not sent email";
+}
+
+function normalizeAllStatuses(){
+  state.companies.forEach(c => c.status = normalizeCompanyStatus(c.status));
+  state.people.forEach(p => p.status = normalizePeopleStatus(p.status));
+  save();
+}
+
+normalizeAllStatuses();
+
+
+
+ensureCadenceTaskFields();
+normalizeAllConnectionStatuses();
+normalizeAllPersonEmails();
+render();
+setTimeout(refreshStatusColors,0);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./service-worker.js");
+  });
+}
+</script>
+</body>
+</html>
