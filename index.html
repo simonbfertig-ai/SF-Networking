@@ -196,6 +196,7 @@ a{color:var(--accent);text-decoration:none;font-weight:650}
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#2f5f9f">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Simon Networking">
 <link rel="apple-touch-icon" href="icon-192.png">
 </head>
@@ -309,7 +310,7 @@ async function loadFromCloud(){
   setSyncStatus("Cloud sync loading...");
   try{
     const { data, error } = await sb
-      .from("crm-data")
+      .from("crm_data")
       .select("data")
       .eq("id", 1)
       .single();
@@ -320,6 +321,16 @@ async function loadFromCloud(){
       state = data.data;
       localStorage.setItem(LS_KEY, JSON.stringify(state));
     } else {
+      // If Supabase is empty but this browser has your old CRM data,
+      // upload the local data to Supabase once.
+      const localState = JSON.parse(localStorage.getItem(LS_KEY) || "null");
+      if(localState && (
+        (localState.companies && localState.companies.length) ||
+        (localState.people && localState.people.length) ||
+        (localState.tasks && localState.tasks.length)
+      )){
+        state = localState;
+      }
       cloudReady = true;
       await saveToCloud(true);
     }
@@ -329,8 +340,8 @@ async function loadFromCloud(){
   } catch(err){
     console.error("Supabase load error:", err);
     cloudReady = false;
-    setSyncStatus("Cloud sync error");
-    alert("Cloud sync could not load. Make sure the Supabase table is named crm-data, RLS is OFF, and the id=1 row exists.");
+    setSyncStatus("Cloud sync not connected");
+    console.warn("Cloud sync could not load. App will keep using local browser data until Supabase is fixed.");
   } finally {
     isLoadingCloud = false;
     render();
@@ -344,15 +355,15 @@ async function saveToCloud(initial=false){
     const payload = { id: 1, data: state, updated_at: new Date().toISOString() };
 
     const { error } = await sb
-      .from("crm-data")
+      .from("crm_data")
       .upsert(payload, { onConflict: "id" });
 
     if(error) throw error;
     setSyncStatus("Cloud synced");
   } catch(err){
     console.error("Supabase save error:", err);
-    setSyncStatus("Cloud save error");
-    if(!initial) alert("Cloud save failed. Your change is saved only on this browser until the cloud connection is fixed.");
+    setSyncStatus("Cloud save not connected");
+    console.warn("Cloud save failed. Local browser data is still available.");
   }
 }
 
