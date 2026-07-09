@@ -221,6 +221,7 @@ a{color:var(--accent);text-decoration:none;font-weight:650}
       <div class="search"><input id="search" placeholder="Search companies & people…"></div>
       <span class="count" id="syncStatus">Cloud sync loading...</span>
       <button class="btn-ghost" id="refreshCloudBtn">Refresh Cloud</button>
+      <button class="btn-ghost" id="forceCloudBtn">Force Cloud Reload</button>
       <button class="btn-ghost" id="importBtn">Import</button>
       <button class="btn-primary" id="newBtn">New company</button>
       
@@ -289,6 +290,48 @@ const pages = {
 };
 
 
+
+function repairCloudData(){
+  if(!state || typeof state !== "object") state = DEFAULT_STATE;
+  if(!Array.isArray(state.people)) state.people = [];
+  if(!Array.isArray(state.tasks)) state.tasks = [];
+  if(!Array.isArray(state.cadence)) state.cadence = [];
+  if(!Array.isArray(state.templates)) state.templates = DEFAULT_STATE.templates;
+
+  // If companies are missing but people have company names, rebuild the Companies tab from People.
+  if(!Array.isArray(state.companies) || state.companies.length === 0){
+    const names = [...new Set(state.people.map(p => String(p.company || "").trim()).filter(Boolean))];
+    state.companies = names.map(name => ({
+      id: id(),
+      name,
+      status: "Researching Company",
+      priority: "Medium",
+      industry: "",
+      location: "",
+      website: "",
+      notes: "Auto-created from people records during cloud sync repair."
+    }));
+  }
+
+  // Normalize old imported people statuses so they show correctly in the new dropdowns.
+  state.people.forEach(p => {
+    if(!["Have not sent email","Sent email","Heard back","Call scheduled","Have not heard back"].includes(p.status)){
+      p.status = "Have not sent email";
+    }
+    if(!Array.isArray(p.emails)){
+      p.emails = p.email ? [p.email] : [];
+    }
+    p.connection = normalizeConnectionStatus ? normalizeConnectionStatus(p.connection) : (p.connection || "Have not sent");
+  });
+
+  // Normalize old company statuses so the Companies tab displays correctly.
+  state.companies.forEach(c => {
+    if(!["Researching Company","Sent Emails"].includes(c.status)){
+      c.status = "Researching Company";
+    }
+  });
+}
+
 function setSyncStatus(text){
   const el = document.getElementById("syncStatus");
   if(el) el.textContent = text;
@@ -319,6 +362,7 @@ async function loadFromCloud(){
 
     if(data && data.data && Object.keys(data.data).length){
       state = data.data;
+      repairCloudData();
       localStorage.setItem(LS_KEY, JSON.stringify(state));
     } else {
       // If Supabase is empty but this browser has your old CRM data,
@@ -331,6 +375,7 @@ async function loadFromCloud(){
       )){
         state = localState;
       }
+      repairCloudData();
       cloudReady = true;
       await saveToCloud(true);
     }
@@ -367,6 +412,14 @@ async function saveToCloud(initial=false){
   }
 }
 
+
+async function clearLocalAndForceCloud(){
+  localStorage.removeItem(LS_KEY);
+  state = DEFAULT_STATE;
+  await loadFromCloud();
+  alert("Fresh cloud data loaded. If companies still do not show, the cloud data itself is missing companies.");
+}
+
 async function forceCloudRefresh(){
   await loadFromCloud();
 }
@@ -398,6 +451,7 @@ document.getElementById("importBtn").onclick=openImportModal;
 document.getElementById("newBtn").onclick=()=>openNewForPage();
 document.getElementById("resetBtn").onclick=resetData;
 document.getElementById("refreshCloudBtn").onclick=forceCloudRefresh;
+document.getElementById("forceCloudBtn").onclick=clearLocalAndForceCloud;
 
 
 function updateNewButtonVisibility(){
@@ -2231,5 +2285,17 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.getRegistrations().then(registrations => {
+    registrations.forEach(reg => reg.unregister());
+  });
+}
+if ("caches" in window) {
+  caches.keys().then(keys => keys.forEach(key => caches.delete(key)));
+}
+</script>
+
 </body>
 </html>
