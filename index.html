@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Simon Networking</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
 :root{
@@ -196,7 +197,6 @@ a{color:var(--accent);text-decoration:none;font-weight:650}
 <meta name="theme-color" content="#2f5f9f">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Simon Networking">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="apple-touch-icon" href="icon-192.png">
 </head>
 <body>
@@ -204,7 +204,7 @@ a{color:var(--accent);text-decoration:none;font-weight:650}
   <aside class="sidebar">
     <div class="nav-brand">
       <h1>Simon Networking</h1>
-      <p>Built for outreach, contacts, Outlook email, cadence, and recruiting follow-up.</p>
+      
     </span></div>
     <button class="nav-item on" data-page="companies">Companies</button>
     <button class="nav-item" data-page="people">People</button>
@@ -218,6 +218,8 @@ a{color:var(--accent);text-decoration:none;font-weight:650}
     <header class="topbar">
       <div class="brand"><h2 id="pageTitle">Companies</h2><span class="count" id="count"></span></div>
       <div class="search"><input id="search" placeholder="Search companies & people…"></div>
+      <span class="count" id="syncStatus">Cloud sync loading...</span>
+      <button class="btn-ghost" id="refreshCloudBtn">Refresh Cloud</button>
       <button class="btn-ghost" id="importBtn">Import</button>
       <button class="btn-primary" id="newBtn">New company</button>
       
@@ -248,7 +250,11 @@ a{color:var(--accent);text-decoration:none;font-weight:650}
 
 <script>
 const LS_KEY = "simon_recruiting_crm_v5";
-let state = JSON.parse(localStorage.getItem(LS_KEY) || "null") || {
+const SUPABASE_URL = "https://alaojtlxeoohtqkmkzhm.supabase.co";
+const SUPABASE_KEY = "sb_publishable_dqh6ndEYPZ71J8DR4KofPw_PMH3WQtt";
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const DEFAULT_STATE = {
   companies: [],
   people: [],
   tasks: [],
@@ -260,6 +266,11 @@ let state = JSON.parse(localStorage.getItem(LS_KEY) || "null") || {
     {name:"Thank You", body:"Hi {{FirstName}},\\n\\nThank you again for taking the time to speak with me. I really enjoyed learning about your experience at {{Company}} and appreciate the advice you shared.\\n\\nBest,\\n{{Your Name}}"}
   ]
 };
+
+let state = JSON.parse(localStorage.getItem(LS_KEY) || "null") || DEFAULT_STATE;
+let cloudSaveTimer = null;
+let cloudReady = false;
+let isLoadingCloud = false;
 
 let currentPage = "companies";
 let currentFilter = "";
@@ -276,7 +287,79 @@ const pages = {
   dashboard: {title:"Statistics", newLabel:"Add target"}
 };
 
-function save(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); }
+
+function setSyncStatus(text){
+  const el = document.getElementById("syncStatus");
+  if(el) el.textContent = text;
+}
+
+function save(){
+  localStorage.setItem(LS_KEY, JSON.stringify(state));
+  scheduleCloudSave();
+}
+
+function scheduleCloudSave(){
+  if(!cloudReady || isLoadingCloud) return;
+  clearTimeout(cloudSaveTimer);
+  cloudSaveTimer = setTimeout(saveToCloud, 450);
+}
+
+async function loadFromCloud(){
+  isLoadingCloud = true;
+  setSyncStatus("Cloud sync loading...");
+  try{
+    const { data, error } = await sb
+      .from("crm_data")
+      .select("data")
+      .eq("id", 1)
+      .single();
+
+    if(error) throw error;
+
+    if(data && data.data && Object.keys(data.data).length){
+      state = data.data;
+      localStorage.setItem(LS_KEY, JSON.stringify(state));
+    } else {
+      cloudReady = true;
+      await saveToCloud(true);
+    }
+
+    cloudReady = true;
+    setSyncStatus("Cloud synced");
+  } catch(err){
+    console.error("Supabase load error:", err);
+    cloudReady = false;
+    setSyncStatus("Cloud sync error");
+    alert("Cloud sync could not load. Make sure Row Level Security is OFF for crm_data, and confirm the id=1 row exists.");
+  } finally {
+    isLoadingCloud = false;
+    render();
+    setTimeout(refreshStatusColors,0);
+  }
+}
+
+async function saveToCloud(initial=false){
+  try{
+    setSyncStatus("Saving...");
+    const payload = { id: 1, data: state, updated_at: new Date().toISOString() };
+
+    const { error } = await sb
+      .from("crm_data")
+      .upsert(payload, { onConflict: "id" });
+
+    if(error) throw error;
+    setSyncStatus("Cloud synced");
+  } catch(err){
+    console.error("Supabase save error:", err);
+    setSyncStatus("Cloud save error");
+    if(!initial) alert("Cloud save failed. Your change is saved only on this browser until the cloud connection is fixed.");
+  }
+}
+
+async function forceCloudRefresh(){
+  await loadFromCloud();
+}
+
 function esc(v){return String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;")}
 function id(){return Math.random().toString(36).slice(2)+Date.now()}
 function same(a,b){return String(a||"").trim().toLowerCase()===String(b||"").trim().toLowerCase()}
@@ -303,6 +386,7 @@ document.getElementById("closeModal").onclick=closeModal;
 document.getElementById("importBtn").onclick=openImportModal;
 document.getElementById("newBtn").onclick=()=>openNewForPage();
 document.getElementById("resetBtn").onclick=resetData;
+document.getElementById("refreshCloudBtn").onclick=forceCloudRefresh;
 
 
 function updateNewButtonVisibility(){
@@ -2091,7 +2175,7 @@ function bulkUpdateCompanyStatus(){
  const status=sel.value;
  if(!status)return alert('Choose a status.');
  state.companies.forEach(c=>{if(selectedCompanies.has(c.id))c.status=status;});
- selectedCompanies.clear();save();render();
+ selectedCompanies.clear();save();loadFromCloud();
 setTimeout(refreshStatusColors,0);
 }
 
@@ -2125,14 +2209,14 @@ normalizeAllStatuses();
 ensureCadenceTaskFields();
 normalizeAllConnectionStatuses();
 normalizeAllPersonEmails();
-render();
+loadFromCloud();
 setTimeout(refreshStatusColors,0);
 </script>
 
 <script>
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./service-worker.js");
+    navigator.serviceWorker.register("./service-worker.js").catch(() => {});
   });
 }
 </script>

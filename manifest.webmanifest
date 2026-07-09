@@ -6,7 +6,6 @@
   "display": "standalone",
   "background_color": "#FAF8F3",
   "theme_color": "#2f5f9f",
-  "description": "Personal networking CRM for outreach, contacts, tasks, cadence, and templates.",
   "icons": [
     {
       "src": "icon-192.png",
