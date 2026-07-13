@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Simon Networking</title>
+<!-- AI_ASSISTANT_VISIBLE_FIXED -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -191,6 +192,45 @@ a{color:var(--accent);text-decoration:none;font-weight:650}
 }
 
 
+
+.company-notes-box{
+  width:100%;
+  min-height:180px;
+  padding:12px;
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  background:var(--surface);
+  resize:vertical;
+  line-height:1.45;
+}
+.company-notes-actions{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-top:10px;
+}
+
+
+.ai-result{
+  white-space:pre-wrap;
+  line-height:1.55;
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  padding:14px;
+  min-height:120px;
+  margin-top:12px;
+}
+.ai-actions{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-top:10px;
+}
+.ai-loading{
+  color:var(--muted);
+  font-weight:650;
+}
 </style>
 
 <link rel="manifest" href="manifest.webmanifest">
@@ -222,6 +262,8 @@ a{color:var(--accent);text-decoration:none;font-weight:650}
       <span class="count" id="syncStatus">Cloud sync loading...</span>
       <button class="btn-ghost" id="refreshCloudBtn">Refresh Cloud</button>
       <button class="btn-ghost" id="forceCloudBtn">Force Cloud Reload</button>
+      <button class="btn-ghost" id="saveVersionBtn">Save Version</button>
+      <button class="btn-ghost" id="versionsBtn">Versions</button>
       <button class="btn-ghost" id="importBtn">Import</button>
       <button class="btn-primary" id="newBtn">New company</button>
       
@@ -251,6 +293,7 @@ a{color:var(--accent);text-decoration:none;font-weight:650}
 </div>
 
 <script>
+// OUTLOOK_SCHEDULER_FIXED_V2
 const LS_KEY = "simon_recruiting_crm_v5";
 const SUPABASE_URL = "https://alaojtlxeoohtqkmkzhm.supabase.co";
 const SUPABASE_KEY = "sb_publishable_dqh6ndEYPZ71J8DR4KofPw_PMH3WQtt";
@@ -452,6 +495,8 @@ document.getElementById("newBtn").onclick=()=>openNewForPage();
 document.getElementById("resetBtn").onclick=resetData;
 document.getElementById("refreshCloudBtn").onclick=forceCloudRefresh;
 document.getElementById("forceCloudBtn").onclick=clearLocalAndForceCloud;
+document.getElementById("saveVersionBtn").onclick=openSaveVersionModal;
+document.getElementById("versionsBtn").onclick=openVersionsModal;
 
 
 function updateNewButtonVisibility(){
@@ -519,10 +564,18 @@ function peopleStatusSelect(personId, value){
 function updatePeopleStatus(personId, value){
   const p = state.people.find(x => x.id === personId);
   if(!p) return;
-  p.status = normalizePeopleStatus(value);
+
+  const newStatus = normalizePeopleStatus(value);
+
+  if(newStatus === "Call scheduled"){
+    openOutlookMeetingModal(personId);
+    return;
+  }
+
+  p.status = newStatus;
   save();
   render();
-setTimeout(refreshStatusColors,0);
+  setTimeout(refreshStatusColors,0);
 }
 
 
@@ -1031,6 +1084,323 @@ function renderStatusPieChart(){
 }
 
 
+
+
+/* ---------------- Save Versions Modal ---------------- */
+
+const SAVED_VERSIONS_KEY = "simon_networking_saved_versions_modal_v1";
+
+function loadSavedVersions(){
+  try{
+    return JSON.parse(localStorage.getItem(SAVED_VERSIONS_KEY) || "[]");
+  }catch(e){
+    return [];
+  }
+}
+
+function storeSavedVersions(versions){
+  localStorage.setItem(SAVED_VERSIONS_KEY, JSON.stringify(versions));
+}
+
+function versionSnapshot(){
+  if(typeof repairCloudData === "function") repairCloudData();
+  return JSON.parse(JSON.stringify(state));
+}
+
+function versionSummaryText(data){
+  data = data || {};
+  const companies = Array.isArray(data.companies) ? data.companies.length : 0;
+  const people = Array.isArray(data.people) ? data.people.length : 0;
+  const tasks = Array.isArray(data.tasks) ? data.tasks.length : 0;
+  const templates = Array.isArray(data.templates) ? data.templates.length : 0;
+  return `${companies} companies • ${people} people • ${tasks} tasks • ${templates} templates`;
+}
+
+function versionDateText(dateValue){
+  try{
+    return new Date(dateValue).toLocaleString();
+  }catch(e){
+    return dateValue || "";
+  }
+}
+
+function openSaveVersionModal(){
+  openModal("Save Version", `
+    <div class="notice">Save a complete copy of your current CRM. You can restore it later from Versions.</div>
+    <div class="fg">
+      <label>Version name</label>
+      <input id="save_version_name" placeholder="Example: Before importing new contacts">
+    </div>
+    <div class="card">
+      <h3>Current CRM</h3>
+      <div class="sub">${esc(versionSummaryText(state))}</div>
+    </div>
+  `, `<button class="btn-primary" onclick="saveNamedVersion()">Save Version</button>`);
+}
+
+function saveNamedVersion(){
+  const versions = loadSavedVersions();
+  const name = v("save_version_name") || "Saved version";
+
+  versions.unshift({
+    id: String(Date.now()),
+    name,
+    created_at: new Date().toISOString(),
+    data: versionSnapshot()
+  });
+
+  storeSavedVersions(versions.slice(0, 75));
+  closeModal();
+  openVersionsModal();
+}
+
+function openVersionsModal(){
+  const versions = loadSavedVersions();
+
+  openModal("Saved Versions", `
+    <div class="notice">Use this if you want to go back to an older version. Restoring first creates a safety backup of your current CRM.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+      <button class="btn-primary" onclick="openSaveVersionModal()">Save Current Version</button>
+      <button class="btn-ghost" onclick="exportSavedVersions()">Export Versions</button>
+      <button class="btn-ghost" onclick="openImportVersionsModal()">Import Versions</button>
+    </div>
+    ${versions.length ? `
+      <div class="list">
+        <div class="row head"><div>Version</div><div>Summary</div><div>Actions</div></div>
+        ${versions.map(item => `
+          <div class="row" style="grid-template-columns:1.2fr 1fr 1.2fr">
+            <div>
+              <div class="nm">${esc(item.name || "Saved version")}</div>
+              <div class="sub">${esc(versionDateText(item.created_at))}</div>
+            </div>
+            <div>${esc(versionSummaryText(item.data))}</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button class="btn-ghost" onclick="previewSavedVersionModal('${item.id}')">Preview</button>
+              <button class="btn-primary" onclick="restoreSavedVersionModal('${item.id}')">Restore</button>
+              <button class="btn-ghost" onclick="duplicateSavedVersion('${item.id}')">Duplicate</button>
+              <button class="btn-danger" onclick="deleteSavedVersionModal('${item.id}')">Delete</button>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    ` : `<div class="empty" style="padding:35px"><h3>No saved versions yet</h3><p>Click Save Current Version to create your first one.</p></div>`}
+  `, `<button class="btn-ghost" onclick="closeModal()">Close</button>`);
+}
+
+function findSavedVersionModal(versionId){
+  return loadSavedVersions().find(item => String(item.id) === String(versionId));
+}
+
+function previewSavedVersionModal(versionId){
+  const item = findSavedVersionModal(versionId);
+  if(!item) return;
+
+  openModal("Preview Version", `
+    <div class="card">
+      <h3>${esc(item.name || "Saved version")}</h3>
+      <div class="sub">${esc(versionDateText(item.created_at))}</div>
+      <p><b>${esc(versionSummaryText(item.data))}</b></p>
+    </div>
+    <div class="warn">Restoring will replace your current CRM. A safety backup will be created first.</div>
+  `, `
+    <button class="btn-ghost" onclick="openVersionsModal()">Back</button>
+    <button class="btn-primary" onclick="restoreSavedVersionModal('${item.id}')">Restore This Version</button>
+  `);
+}
+
+function restoreSavedVersionModal(versionId){
+  const item = findSavedVersionModal(versionId);
+  if(!item) return;
+
+  if(!confirm("Restore this version? Your current CRM will be replaced, but a safety backup will be saved first.")) return;
+
+  const versions = loadSavedVersions();
+  versions.unshift({
+    id: String(Date.now()),
+    name: "Safety backup before restore",
+    created_at: new Date().toISOString(),
+    data: versionSnapshot()
+  });
+  storeSavedVersions(versions.slice(0, 75));
+
+  state = JSON.parse(JSON.stringify(item.data || DEFAULT_STATE));
+  if(typeof repairCloudData === "function") repairCloudData();
+
+  localStorage.setItem(LS_KEY, JSON.stringify(state));
+  save();
+
+  closeModal();
+  currentPage = "companies";
+  render();
+  setTimeout(refreshStatusColors, 0);
+  alert("Version restored.");
+}
+
+function duplicateSavedVersion(versionId){
+  const item = findSavedVersionModal(versionId);
+  if(!item) return;
+
+  const versions = loadSavedVersions();
+  versions.unshift({
+    id: String(Date.now()),
+    name: (item.name || "Saved version") + " copy",
+    created_at: new Date().toISOString(),
+    data: JSON.parse(JSON.stringify(item.data || DEFAULT_STATE))
+  });
+  storeSavedVersions(versions.slice(0, 75));
+  openVersionsModal();
+}
+
+function deleteSavedVersionModal(versionId){
+  if(!confirm("Delete this saved version?")) return;
+  const versions = loadSavedVersions().filter(item => String(item.id) !== String(versionId));
+  storeSavedVersions(versions);
+  openVersionsModal();
+}
+
+function exportSavedVersions(){
+  const blob = new Blob([JSON.stringify(loadSavedVersions(), null, 2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "simon-networking-saved-versions.json";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(a.href);
+}
+
+function openImportVersionsModal(){
+  openModal("Import Saved Versions", `
+    <div class="notice">Import versions that you previously exported from this app.</div>
+    <div class="fg">
+      <label>Saved versions file</label>
+      <input type="file" id="saved_versions_file" accept=".json">
+    </div>
+  `, `
+    <button class="btn-ghost" onclick="openVersionsModal()">Back</button>
+    <button class="btn-primary" onclick="importSavedVersions()">Import</button>
+  `);
+}
+
+function importSavedVersions(){
+  const fileInput = document.getElementById("saved_versions_file");
+  const file = fileInput && fileInput.files ? fileInput.files[0] : null;
+  if(!file) return alert("Choose a file first.");
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    try{
+      const incoming = JSON.parse(reader.result);
+      if(!Array.isArray(incoming)) throw new Error("Invalid file");
+
+      const existing = loadSavedVersions();
+      const merged = [...incoming, ...existing];
+      const seen = new Set();
+      const cleaned = merged.filter(item => {
+        if(!item || !item.id || !item.data) return false;
+        const key = String(item.id);
+        if(seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      }).slice(0, 75);
+
+      storeSavedVersions(cleaned);
+      openVersionsModal();
+    }catch(e){
+      alert("Could not import this file.");
+    }
+  };
+  reader.readAsText(file);
+}
+
+
+
+/* ---------------- Outlook Calendar Scheduling ---------------- */
+
+function timeToMinutes(t){
+  if(!t) return 0;
+  const parts = String(t).split(":").map(Number);
+  return (parts[0] || 0) * 60 + (parts[1] || 0);
+}
+function minutesToTime(total){
+  const h = Math.floor(total / 60) % 24;
+  const m = total % 60;
+  return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
+}
+function defaultEndTime(startTime){
+  return minutesToTime(timeToMinutes(startTime || "10:00") + 30);
+}
+function outlookCalendarUrl({subject, startDate, startTime, endTime, body, location}){
+  const base = "https://outlook.office.com/calendar/0/deeplink/compose";
+  const params = new URLSearchParams({
+    subject: subject || "Networking Call",
+    startdt: `${startDate}T${startTime}:00`,
+    enddt: `${startDate}T${endTime}:00`,
+    body: body || "",
+    location: location || ""
+  });
+  return `${base}?${params.toString()}`;
+}
+function openOutlookMeetingModal(personId){
+  const p = state.people.find(x => x.id === personId);
+  if(!p) return;
+
+  const defaultTitle = `Networking Call - ${p.name || "Contact"}`;
+  const noteText = `Networking call with ${p.name || ""}${p.company ? " from " + p.company : ""}.${p.email ? "\\nEmail: " + p.email : ""}${p.linkedin ? "\\nLinkedIn: " + p.linkedin : ""}`;
+
+  openModal("Schedule Outlook Meeting", `
+    <div class="notice">Fill this out and click Add to Outlook Calendar. Outlook will open with the meeting details already filled in.</div>
+    <div class="fg"><label>Meeting title</label><input id="meeting_subject" value="${esc(defaultTitle)}"></div>
+    <div class="fg-2">
+      <div class="fg"><label>Date</label><input id="meeting_date" type="date" value="${today()}"></div>
+      <div class="fg"><label>Location / Call link</label><input id="meeting_location" placeholder="Phone, Zoom, Teams, office, etc."></div>
+    </div>
+    <div class="fg-2">
+      <div class="fg"><label>Start time</label><input id="meeting_start" type="time" value="10:00" onchange="document.getElementById('meeting_end').value = defaultEndTime(this.value)"></div>
+      <div class="fg"><label>End time</label><input id="meeting_end" type="time" value="10:30"></div>
+    </div>
+    <div class="fg"><label>Notes</label><textarea id="meeting_notes">${esc(noteText)}</textarea></div>
+  `, `
+    <button class="btn-ghost" onclick="closeModal();render();setTimeout(refreshStatusColors,0)">Cancel</button>
+    <button class="btn-primary" onclick="createOutlookMeetingForPerson('${personId}')">Add to Outlook Calendar</button>
+  `);
+}
+function createOutlookMeetingForPerson(personId){
+  const p = state.people.find(x => x.id === personId);
+  if(!p) return;
+
+  const subject = v("meeting_subject") || `Networking Call - ${p.name || "Contact"}`;
+  const startDate = v("meeting_date") || today();
+  const startTime = v("meeting_start") || "10:00";
+  const endTime = v("meeting_end") || defaultEndTime(startTime);
+  const location = v("meeting_location") || "";
+  const body = v("meeting_notes") || "";
+  const url = outlookCalendarUrl({subject,startDate,startTime,endTime,body,location});
+
+  p.status = "Call scheduled";
+  p.nextMeeting = {subject,date:startDate,start:startTime,end:endTime,location,notes:body,outlookUrl:url,createdAt:new Date().toISOString()};
+  save();
+  closeModal();
+  render();
+  setTimeout(refreshStatusColors,0);
+  window.open(url, "_blank");
+}
+function meetingDisplay(person){
+  if(!person || !person.nextMeeting) return "";
+  const m = person.nextMeeting;
+  return `
+    <div class="card">
+      <h3>Next Meeting</h3>
+      <dl class="defgrid">
+        <dt>Title</dt><dd>${esc(m.subject || "")}</dd>
+        <dt>Date</dt><dd>${esc(m.date || "")}</dd>
+        <dt>Time</dt><dd>${esc(m.start || "")}${m.end ? " - " + esc(m.end) : ""}</dd>
+        <dt>Location</dt><dd>${esc(m.location || "")}</dd>
+      </dl>
+      ${m.outlookUrl ? `<button class="btn-ghost" onclick="window.open('${esc(m.outlookUrl)}', '_blank')">Open Outlook Event</button>` : ""}
+    </div>`;
+}
+
 function renderDashboard(){
   document.getElementById("count").textContent = "";
   document.getElementById("content").innerHTML = renderStatusPieChart();
@@ -1050,6 +1420,165 @@ function closeDrawer(){
   document.getElementById("drawer").classList.remove("show");
 }
 
+
+function saveCompanyInterviewNotes(companyId){
+  const c = state.companies.find(x => x.id === companyId);
+  if(!c) return;
+  const box = document.getElementById("companyInterviewNotes");
+  if(!box) return;
+  c.interviewNotes = box.value;
+  save();
+  alert("Company notes saved.");
+}
+
+function clearCompanyInterviewNotes(companyId){
+  if(!confirm("Clear these company notes?")) return;
+  const c = state.companies.find(x => x.id === companyId);
+  if(!c) return;
+  c.interviewNotes = "";
+  save();
+  openCompany(companyId);
+}
+
+
+/* ---------------- Company AI Assistant ---------------- */
+
+let activeAICompanyId = "";
+let latestAIResult = "";
+
+function companyAIContext(company){
+  const people = state.people.filter(p => same(p.company, company.name));
+  const tasks = state.tasks.filter(t => same(t.company, company.name));
+
+  return {
+    name: company.name || "",
+    website: company.website || "",
+    industry: company.industry || "",
+    location: company.location || "",
+    status: company.status || "",
+    notes: company.notes || "",
+    interviewNotes: company.interviewNotes || "",
+    contacts: people.map(p => ({
+      name: p.name || "",
+      title: p.title || "",
+      email: p.email || "",
+      status: p.status || ""
+    })),
+    openTasks: tasks
+      .filter(t => normalizeTaskStatus(t.status) !== "Complete")
+      .map(t => ({
+        type: t.type || "",
+        person: t.person || "",
+        due: t.due || "",
+        notes: t.notes || ""
+      }))
+  };
+}
+
+function openCompanyAIAssistant(companyId, preset="interview-prep"){
+  const company = state.companies.find(x => x.id === companyId);
+  if(!company) return;
+
+  activeAICompanyId = companyId;
+  latestAIResult = "";
+
+  openModal(`AI Assistant — ${company.name}`, `
+    <div class="notice">
+      The AI uses the company information, contacts, tasks, and interview notes already saved in your CRM.
+    </div>
+
+    <div class="fg">
+      <label>What should the AI do?</label>
+      <select id="ai_preset">
+        <option value="interview-prep" ${preset==="interview-prep" ? "selected" : ""}>Create interview prep</option>
+        <option value="questions" ${preset==="questions" ? "selected" : ""}>Generate questions to ask</option>
+        <option value="summary" ${preset==="summary" ? "selected" : ""}>Summarize company notes</option>
+        <option value="talking-points" ${preset==="talking-points" ? "selected" : ""}>Create networking talking points</option>
+        <option value="follow-up" ${preset==="follow-up" ? "selected" : ""}>Draft a follow-up email</option>
+        <option value="custom" ${preset==="custom" ? "selected" : ""}>Custom request</option>
+      </select>
+    </div>
+
+    <div class="fg">
+      <label>Extra instructions (optional)</label>
+      <textarea id="ai_custom_prompt" placeholder="Example: Give me 10 questions I can ask about the company."></textarea>
+    </div>
+
+    <div id="ai_result" class="ai-result">
+      <span class="sub">Choose an option and click Generate.</span>
+    </div>
+  `, `
+    <button class="btn-ghost" onclick="closeModal()">Close</button>
+    <button class="btn-primary" id="ai_generate_btn" onclick="generateCompanyAI()">Generate</button>
+  `);
+}
+
+async function generateCompanyAI(){
+  const company = state.companies.find(x => x.id === activeAICompanyId);
+  if(!company) return;
+
+  const resultBox = document.getElementById("ai_result");
+  const generateBtn = document.getElementById("ai_generate_btn");
+  const preset = v("ai_preset") || "interview-prep";
+  const customPrompt = v("ai_custom_prompt") || "";
+
+  resultBox.innerHTML = `<span class="ai-loading">Generating…</span>`;
+  if(generateBtn) generateBtn.disabled = true;
+
+  try{
+    const response = await fetch("/api/company-ai", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        preset,
+        customPrompt,
+        company: companyAIContext(company)
+      })
+    });
+
+    const payload = await response.json().catch(() => ({}));
+
+    if(!response.ok){
+      throw new Error(payload.error || "AI request failed.");
+    }
+
+    latestAIResult = payload.text || "No response was returned.";
+
+    resultBox.innerHTML = `
+      <div>${esc(latestAIResult).replaceAll("\n","<br>")}</div>
+      <div class="ai-actions">
+        <button class="btn-primary" onclick="appendAIToCompanyNotes()">Add to Interview Notes</button>
+        <button class="btn-ghost" onclick="navigator.clipboard.writeText(latestAIResult)">Copy</button>
+        <button class="btn-ghost" onclick="generateCompanyAI()">Regenerate</button>
+      </div>
+    `;
+  }catch(err){
+    console.error("Company AI error:", err);
+    resultBox.innerHTML = `
+      <div class="warn">
+        AI could not connect. Make sure <b>api/company-ai.js</b> exists in GitHub and <b>OPENAI_API_KEY</b> is saved in Vercel.
+      </div>
+      <div class="sub">${esc(err.message || "")}</div>
+    `;
+  }finally{
+    if(generateBtn) generateBtn.disabled = false;
+  }
+}
+
+function appendAIToCompanyNotes(){
+  const company = state.companies.find(x => x.id === activeAICompanyId);
+  if(!company || !latestAIResult) return;
+
+  const heading = `AI notes — ${new Date().toLocaleString()}`;
+  const existing = String(company.interviewNotes || "").trim();
+
+  company.interviewNotes =
+    `${existing}${existing ? "\n\n" : ""}${heading}\n${latestAIResult}`;
+
+  save();
+  alert("AI response added to the company's interview notes.");
+}
+
 function openCompany(companyId){
   const c=state.companies.find(x=>x.id===companyId);
   if(!c) return;
@@ -1063,6 +1592,37 @@ function openCompany(companyId){
       <dt>Priority</dt><dd>${esc(c.priority||"")}</dd>
       <dt>Notes</dt><dd>${esc(c.notes||"")}</dd>
     </dl>
+
+    <div class="card">
+      <h3>Interview / Company Notes</h3>
+      <div class="sub" style="margin-bottom:10px">Use this space for anything helpful before interviews or calls: company background, people to mention, talking points, recent news, questions to ask, and follow-up ideas.</div>
+      <textarea id="companyInterviewNotes" class="company-notes-box" placeholder="Example:
+- What the company does
+- Why I am interested
+- Questions to ask
+- People I spoke with
+- Recent news or deals
+- Follow-up reminders">${esc(c.interviewNotes || c.notes || "")}</textarea>
+      <div class="company-notes-actions">
+        <button class="btn-primary" onclick="saveCompanyInterviewNotes('${c.id}')">Save Notes</button>
+        <button class="btn-ghost" onclick="navigator.clipboard.writeText(document.getElementById('companyInterviewNotes').value)">Copy Notes</button>
+        <button class="btn-danger" onclick="clearCompanyInterviewNotes('${c.id}')">Clear Notes</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>AI Company Assistant</h3>
+      <div class="sub" style="margin-bottom:10px">
+        Use your saved company details and notes to prepare for interviews, calls, and follow-ups.
+      </div>
+      <div class="ai-actions">
+        <button class="btn-primary" onclick="openCompanyAIAssistant('${c.id}','interview-prep')">Interview Prep</button>
+        <button class="btn-ghost" onclick="openCompanyAIAssistant('${c.id}','questions')">Questions to Ask</button>
+        <button class="btn-ghost" onclick="openCompanyAIAssistant('${c.id}','talking-points')">Talking Points</button>
+        <button class="btn-ghost" onclick="openCompanyAIAssistant('${c.id}','custom')">Ask AI</button>
+      </div>
+    </div>
+
     <div class="subtabs">
       <button class="on" onclick="showSub('coPeople',this)">Employees / Contacts</button>
       <button onclick="showSub('coTasks',this)">Tasks</button>
@@ -1268,6 +1828,7 @@ function openPerson(personId){
       <dt>Phone</dt><dd>${esc(p.phone||"")}</dd>
       <dt>Notes</dt><dd>${esc(p.notes||"")}</dd>
     </dl>
+    ${meetingDisplay(p)}
 
     <div class="card">
       <h3>Emails</h3>
@@ -2295,6 +2856,16 @@ if ("serviceWorker" in navigator) {
 if ("caches" in window) {
   caches.keys().then(keys => keys.forEach(key => caches.delete(key)));
 }
+</script>
+
+
+<script>
+window.addEventListener("load", function(){
+  const saveBtn = document.getElementById("saveVersionBtn");
+  const versionsBtn = document.getElementById("versionsBtn");
+  if(saveBtn) saveBtn.onclick = openSaveVersionModal;
+  if(versionsBtn) versionsBtn.onclick = openVersionsModal;
+});
 </script>
 
 </body>
